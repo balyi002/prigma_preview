@@ -1,0 +1,1 @@
+export { SupplierManager } from './components/SupplierManager';
