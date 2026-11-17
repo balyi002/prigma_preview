@@ -18,6 +18,7 @@ export default function Navbar({ currentView, currentUser, theme, onToggleTheme 
     agenda: { section: 'SERVICIOS', page: 'Agenda' },
     clients: { section: 'VENTAS', page: 'Clientes' },
     sales: { section: 'VENTAS', page: 'Ventas' },
+    separados: { section: 'VENTAS', page: 'Gestión de Separados' },
   };
 
   const current = breadcrumbMap[currentView] || { section: 'SISTEMA', page: 'PRIGMA' };
