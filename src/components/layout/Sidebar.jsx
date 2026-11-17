@@ -18,7 +18,8 @@ import {
   LogOut,
   Sun,
   Moon,
-  ChevronDown
+  ChevronDown,
+  BookmarkCheck // <--- Ícono agregado para Separados
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -68,15 +69,18 @@ export default function Sidebar({
       title: 'VENTAS',
       icon: DollarSign,
       items: [
+        // AQUÍ ESTÁN TUS MÓDULOS DE VENTAS:
+        { id: 'sales', label: 'Ventas', icon: BookOpen },
+        { id: 'separados', label: 'Gestión de Separados', icon: BookmarkCheck },
         { id: 'orders', label: 'Pedidos', icon: FileText },
-        { id: 'clients', label: 'Clientes', icon: Users, disabledNote: 'Módulo de Danilo Velásquez' },
-        { id: 'sales', label: 'Ventas', icon: BookOpen, disabledNote: 'Módulo de Anyi González' }
+        { id: 'clients', label: 'Clientes', icon: Users, disabledNote: 'Módulo de Danilo Velásquez' }
       ]
     },
     {
       title: 'MEDICIÓN Y DESEMPEÑO',
       icon: LayoutDashboard,
       items: [
+        // AQUÍ ESTÁ TU MÓDULO DE DASHBOARD:
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }
       ]
     }

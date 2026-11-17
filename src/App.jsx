@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import Ventas from './features/sales/Ventas';
+import GestionSeparados from './features/sales/GestionSeparados';
 import { LoginScreen, authService } from './features/auth';
 import { RolesPage } from './features/roles';
 import { ProductCategoriesPage } from './features/product-categories';
@@ -86,6 +88,15 @@ function App() {
           />
         );
 
+      // ==========================================
+      // TUS MÓDULOS DE VENTAS Y SEPARADOS:
+      // ==========================================
+      case 'sales':
+        return <Ventas />;
+
+      case 'separados':
+        return <GestionSeparados />;
+
       default:
         // Placeholder para los módulos correspondientes a los demás compañeros de equipo
         const teamResponsibilityMap = {
@@ -97,8 +108,7 @@ function App() {
           employees: 'Diego Agudelo (Empleados)',
           purchases: 'Yojhan Barrada (Gestión de Compras)',
           services: 'Yojhan Barrada (Gestión de Servicios)',
-          agenda: 'Yojhan Barrada (Agenda)',
-          sales: 'Anyi Carolina González (Ventas)'
+          agenda: 'Yojhan Barrada (Agenda)'
         };
 
         const responsible = teamResponsibilityMap[currentView] || 'Equipo de desarrollo';
