@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import Ventas from './features/sales/Ventas';
+import GestionSeparados from './features/sales/GestionSeparados';
 import { LoginScreen, authService } from './features/auth';
 import { RolesPage } from './features/roles';
 import { ProductCategoriesPage } from './features/product-categories';
 import { OrdersPage } from './features/orders';
+import { ProductsPage } from './features/products';
+import { EmployeesPage } from './features/employees';
+import { ServiceCategoriesPage } from './features/service-categories';
 import Sidebar from './components/layout/Sidebar';
 import Navbar from './components/layout/Navbar';
 import DashboardPlaceholder from './components/layout/DashboardPlaceholder';
@@ -65,6 +70,15 @@ function App() {
       case 'orders':
         return <OrdersPage currentUser={currentUser} />;
 
+      case 'products':
+        return <ProductsPage />;
+
+      case 'employees':
+        return <EmployeesPage />;
+
+      case 'service-categories':
+        return <ServiceCategoriesPage />;
+
       case 'pos':
         return (
           <OrdersPage
@@ -73,6 +87,15 @@ function App() {
             onNavigateBack={() => setCurrentView('orders')}
           />
         );
+
+      // ==========================================
+      // TUS MÓDULOS DE VENTAS Y SEPARADOS:
+      // ==========================================
+      case 'sales':
+        return <Ventas />;
+
+      case 'separados':
+        return <GestionSeparados />;
 
       default:
         // Placeholder para los módulos correspondientes a los demás compañeros de equipo
@@ -85,8 +108,7 @@ function App() {
           employees: 'Diego Agudelo (Empleados)',
           purchases: 'Yojhan Barrada (Gestión de Compras)',
           services: 'Yojhan Barrada (Gestión de Servicios)',
-          agenda: 'Yojhan Barrada (Agenda)',
-          sales: 'Anyi Carolina González (Ventas)'
+          agenda: 'Yojhan Barrada (Agenda)'
         };
 
         const responsible = teamResponsibilityMap[currentView] || 'Equipo de desarrollo';
