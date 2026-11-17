@@ -3,6 +3,9 @@ import { LoginScreen, authService } from './features/auth';
 import { RolesPage } from './features/roles';
 import { ProductCategoriesPage } from './features/product-categories';
 import { OrdersPage } from './features/orders';
+import { ProductsPage } from './features/products';
+import { EmployeesPage } from './features/employees';
+import { ServiceCategoriesPage } from './features/service-categories';
 import Sidebar from './components/layout/Sidebar';
 import Navbar from './components/layout/Navbar';
 import DashboardPlaceholder from './components/layout/DashboardPlaceholder';
@@ -64,6 +67,15 @@ function App() {
 
       case 'orders':
         return <OrdersPage currentUser={currentUser} />;
+
+      case 'products':
+        return <ProductsPage />;
+
+      case 'employees':
+        return <EmployeesPage />;
+
+      case 'service-categories':
+        return <ServiceCategoriesPage />;
 
       case 'pos':
         return (
