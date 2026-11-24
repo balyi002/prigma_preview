@@ -23,7 +23,7 @@ export default function ServicesTable({ services, onEdit, onToggle, onDelete }) 
             <tr key={s.id_servicio} className="border-b border-border last:border-b-0 hover:bg-muted/40 transition-colors">
               <td className="px-5 py-3">
                 <p className="font-black text-foreground leading-tight">{s.nombre_servicio}</p>
-                <p className="text-xs text-muted-foreground">{serviceCode(s.id_servicio)}</p>
+                <p className="font-mono text-[11px] font-medium text-primary">{serviceCode(s.id_servicio)}</p>
               </td>
 
               <td className="px-5 py-3">
