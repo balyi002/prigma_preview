@@ -16,11 +16,6 @@ export const categoryService = {
     return res.data;
   },
 
-  updateCategoryStatus: async (id, estado) => {
-    const res = await api.patch(`/categorias-producto/${id}/estado`, { estado });
-    return res.data;
-  },
-
   deleteCategory: async (id) => {
     const res = await api.delete(`/categorias-producto/${id}`);
     return res.data;

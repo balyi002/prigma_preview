@@ -21,6 +21,21 @@ export const orderService = {
     return res.data;
   },
 
+  addPayment: async (id, paymentData) => {
+    const res = await api.post(`/pedidos/${id}/pagos`, paymentData);
+    return res.data;
+  },
+
+  addProductToOrder: async (id, productData) => {
+    const res = await api.post(`/pedidos/${id}/productos`, productData);
+    return res.data;
+  },
+
+  addServiceToOrder: async (id, serviceData) => {
+    const res = await api.post(`/pedidos/${id}/servicios`, serviceData);
+    return res.data;
+  },
+
   getPOSCatalog: async () => {
     const [prodsRes, servsRes, catsRes, clientsRes, estadosRes] = await Promise.all([
       api.get('/productos'),

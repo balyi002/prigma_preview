@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../../components/ui/Modal';
 import { Check, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { CANONICAL_PERMISOS, normalizePermName, isDashboardPerm } from '../utils/roleConstants';
 
 export default function RoleModal({
   open,
   onClose,
   onSave,
   role = null,
+  allPermisos = [],
   allPermisosPrivilegios = [],
   loading = false
 }) {
@@ -17,21 +19,31 @@ export default function RoleModal({
   const [expandedPerms, setExpandedPerms] = useState({});
   const [error, setError] = useState('');
 
-  // Group allPermisosPrivilegios by nombre_permiso
+  // Agrupar permisos canónicos ordenados estrictamente por id_permiso (1..14)
   const permisosGrouped = React.useMemo(() => {
-    const groups = {};
-    allPermisosPrivilegios.forEach((item) => {
-      if (!groups[item.nombre_permiso]) {
-        groups[item.nombre_permiso] = {
-          id_permiso: item.id_permiso,
-          nombre_permiso: item.nombre_permiso,
-          items: []
-        };
-      }
-      groups[item.nombre_permiso].items.push(item);
+    const base = (allPermisos && allPermisos.length > 0)
+      ? allPermisos
+      : CANONICAL_PERMISOS;
+
+    // Asegurar orden estricto por id_permiso (1 al 14)
+    const sorted = [...base].sort((a, b) => a.id_permiso - b.id_permiso);
+
+    return sorted.map((perm) => {
+      const items = allPermisosPrivilegios.filter(
+        (pp) =>
+          pp.id_permiso === perm.id_permiso ||
+          normalizePermName(pp.nombre_permiso) === normalizePermName(perm.nombre_permiso)
+      );
+      return {
+        id_permiso: perm.id_permiso,
+        nombre_permiso: perm.nombre_permiso,
+        label: perm.label || perm.nombre_permiso,
+        descripcion: perm.descripcion,
+        isDashboard: isDashboardPerm(perm),
+        items
+      };
     });
-    return Object.values(groups);
-  }, [allPermisosPrivilegios]);
+  }, [allPermisos, allPermisosPrivilegios]);
 
   useEffect(() => {
     if (open) {
@@ -57,13 +69,21 @@ export default function RoleModal({
     }
   }, [open, role]);
 
-  // Check if a permission is active (if at least one of its privileges is selected)
+  // Check if a permission is active
   const isPermisoActive = (group) => {
+    if (group.isDashboard) {
+      // El dashboard no tiene privilegios, no se deben validar privilegios para este permiso
+      return true;
+    }
     return group.items.some((item) => !!selectedPrivs[item.id_permiso_privilegio]);
   };
 
   // Toggle all privileges for a given permission
   const handleTogglePermisoGroup = (group) => {
+    if (group.isDashboard) {
+      // Dashboard es de acceso base y no tiene privilegios asignables en la BD
+      return;
+    }
     const active = isPermisoActive(group);
     const newMap = { ...selectedPrivs };
     group.items.forEach((item) => {
@@ -117,7 +137,7 @@ export default function RoleModal({
     }
 
     const asignaciones = Object.keys(selectedPrivs)
-      .filter((k) => selectedPrivs[k])
+      .filter((k) => selectedPrivs[k] && Number(k) > 0)
       .map((k) => ({
         id_permiso_privilegio: Number(k),
         estado_permiso: true
@@ -212,10 +232,11 @@ export default function RoleModal({
             {permisosGrouped.map((group) => {
               const active = isPermisoActive(group);
               const isExpanded = expandedPerms[group.nombre_permiso] ?? active;
+              const displayName = group.label || group.nombre_permiso;
 
               return (
                 <div
-                  key={group.nombre_permiso}
+                  key={group.id_permiso || group.nombre_permiso}
                   className={`rounded-xl border p-3 transition-all ${
                     active
                       ? 'bg-card border-primary/30 shadow-xs'
@@ -227,6 +248,7 @@ export default function RoleModal({
                       <input
                         type="checkbox"
                         checked={active}
+                        disabled={group.isDashboard}
                         onChange={() => handleTogglePermisoGroup(group)}
                         className="sr-only"
                       />
@@ -237,22 +259,32 @@ export default function RoleModal({
                       >
                         {active && <Check className="w-3 h-3 stroke-[3]" />}
                       </div>
-                      <span className={`text-xs font-black ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
-                        {group.nombre_permiso}
-                      </span>
+                      <div>
+                        <span className={`text-xs font-black ${active ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          {displayName}
+                        </span>
+                        {group.isDashboard && (
+                          <span className="block text-[10px] text-muted-foreground font-semibold">
+                            Acceso libre · Sin privilegios requeridos
+                          </span>
+                        )}
+                      </div>
                     </label>
 
-                    <button
-                      type="button"
-                      onClick={() => handleToggleExpand(group.nombre_permiso)}
-                      className="p-1 rounded text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                    </button>
+                    {!group.isDashboard && group.items.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleExpand(group.nombre_permiso)}
+                        className="p-1 rounded text-muted-foreground hover:text-foreground cursor-pointer"
+                        title={isExpanded ? 'Ocultar privilegios' : 'Ver privilegios'}
+                      >
+                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
                   </div>
 
                   {/* Privilegios desplegados */}
-                  {isExpanded && (
+                  {!group.isDashboard && isExpanded && group.items.length > 0 && (
                     <div className="mt-2.5 pt-2 border-t border-border/60 flex flex-wrap gap-1.5">
                       {group.items.map((item) => {
                         const isPrivChecked = !!selectedPrivs[item.id_permiso_privilegio];
