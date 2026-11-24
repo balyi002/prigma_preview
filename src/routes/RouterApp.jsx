@@ -17,7 +17,6 @@ import { EmployeesPage } from '../features/employees';
 
 // 4. Módulos de Anyi Carolina González
 import Ventas from '../features/sales/Ventas';
-import GestionSeparados from '../features/sales/GestionSeparados';
 import Dashboard from '../components/layout/DashboardPlaceholder';
 
 // 5. Módulos de Arlex Barrada (Yojhan Arlex Barrada)
@@ -85,9 +84,6 @@ export default function RouterApp({ currentView, onNavigate, currentUser }) {
 
     case 'sales': // Anyi Carolina González
       return <Ventas />;
-
-    case 'separados': // Anyi Carolina González
-      return <GestionSeparados />;
 
     case 'clients': // Danilo Velásquez
       return <ClientList />;

@@ -69,8 +69,12 @@ export default function LoginScreen({ onLoginSuccess, theme, onToggleTheme }) {
       <div className="w-full max-w-md bg-card border border-border rounded-2xl p-8 shadow-xl shadow-primary/5 transition-colors">
         {/* Identidad de marca PRIGMA */}
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-primary shadow-lg shadow-primary/25 transform hover:scale-105 transition-transform">
-            <ShoppingBag className="w-8 h-8 text-white" />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-primary/10 border border-primary/20 shadow-lg shadow-primary/15 transform hover:scale-105 transition-transform overflow-hidden p-1.5">
+            <img
+              src="https://github.com/user-attachments/assets/f6f8df77-3049-4267-8d54-f054466943aa"
+              alt="PRIGMA Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="font-black text-2xl text-foreground tracking-tight">PRIGMA</h1>
           <p className="text-sm font-semibold text-muted-foreground mt-0.5">Variedades Carito · Gestión Integral</p>

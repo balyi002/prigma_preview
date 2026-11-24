@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2, Tag, AlertTriangle } from 'lucide-react';
 import { categoryService } from '../services/categoryService';
 import CategoryModal from '../components/CategoryModal';
-import ToggleSwitch from '../../../components/ui/ToggleSwitch';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
 import Pagination from '../../../components/ui/Pagination';
 
@@ -78,23 +77,6 @@ export default function ProductCategoriesPage() {
     }
   };
 
-  const handleToggleStatus = async (cat) => {
-    const newStatus = !cat.estado;
-    try {
-      await categoryService.updateCategoryStatus(cat.id_categoria_producto, newStatus);
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id_categoria_producto === cat.id_categoria_producto
-            ? { ...c, estado: newStatus ? 1 : 0 }
-            : c
-        )
-      );
-    } catch (err) {
-      console.error('Error cambiando estado:', err);
-      alert(err.response?.data?.error || err.message || 'Error al actualizar estado');
-    }
-  };
-
   const handleDelete = (cat) => {
     setConfirmState({
       open: true,
@@ -158,21 +140,20 @@ export default function ProductCategoriesPage() {
               <tr className="border-b border-border bg-muted/40 text-[11px] font-black uppercase tracking-wider text-muted-foreground">
                 <th className="py-3.5 px-5">Categoría</th>
                 <th className="py-3.5 px-5">Descripción</th>
-                <th className="py-3.5 px-5 text-center">Estado</th>
                 <th className="py-3.5 px-5 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={3} className="py-12 text-center text-muted-foreground">
                     <span className="inline-block w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2 align-middle" />
                     Cargando categorías...
                   </td>
                 </tr>
               ) : pagedCategories.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={3} className="py-12 text-center text-muted-foreground">
                     <Tag className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p className="font-bold text-foreground">No se encontraron categorías</p>
                     <p className="text-xs">Prueba con otro término de búsqueda o crea una nueva.</p>
@@ -196,12 +177,6 @@ export default function ProductCategoriesPage() {
                         <span className="text-xs text-muted-foreground line-clamp-2">
                           {cat.descripcion || '—'}
                         </span>
-                      </td>
-                      <td className="py-3.5 px-5 text-center">
-                        <ToggleSwitch
-                          checked={Boolean(cat.estado !== 0 && cat.estado !== false)}
-                          onChange={() => handleToggleStatus(cat)}
-                        />
                       </td>
                       <td className="py-3.5 px-5 text-right">
                         <div className="flex items-center justify-end gap-1">
