@@ -42,7 +42,7 @@ export default function Sidebar({
       title: 'USUARIOS',
       icon: User,
       items: [
-        { id: 'users', label: 'Gestión de Usuarios', icon: Users, disabledNote: 'Módulo de Danilo Velásquez' }
+        { id: 'users', label: 'Gestión de Usuarios', icon: Users }
       ]
     },
     {
@@ -50,37 +50,35 @@ export default function Sidebar({
       icon: Package,
       items: [
         { id: 'product-categories', label: 'Categoría de Productos', icon: Tag },
-        { id: 'products', label: 'Gestión de Productos', icon: Package, disabledNote: 'Módulo de Diego Agudelo' },
-        { id: 'suppliers', label: 'Proveedores', icon: Truck, disabledNote: 'Módulo de Danilo Velásquez' },
-        { id: 'purchases', label: 'Gestión de Compras', icon: DollarSign, disabledNote: 'Módulo de Yojhan Barrada' }
+        { id: 'products', label: 'Gestión de Productos', icon: Package },
+        { id: 'suppliers', label: 'Proveedores', icon: Truck },
+        { id: 'purchases', label: 'Gestión de Compras', icon: DollarSign }
       ]
     },
     {
       title: 'SERVICIOS',
       icon: Briefcase,
       items: [
-        { id: 'service-categories', label: 'Categoría de Servicios', icon: Tag, disabledNote: 'Módulo de Diego Agudelo' },
-        { id: 'services', label: 'Gestión de Servicios', icon: Star, disabledNote: 'Módulo de Yojhan Barrada' },
-        { id: 'employees', label: 'Empleados', icon: Users, disabledNote: 'Módulo de Diego Agudelo' },
-        { id: 'agenda', label: 'Agenda', icon: Clock, disabledNote: 'Módulo de Yojhan Barrada' }
+        { id: 'service-categories', label: 'Categoría de Servicios', icon: Tag },
+        { id: 'services', label: 'Gestión de Servicios', icon: Star },
+        { id: 'employees', label: 'Empleados', icon: Users },
+        { id: 'agenda', label: 'Agenda', icon: Clock }
       ]
     },
     {
       title: 'VENTAS',
       icon: DollarSign,
       items: [
-        // AQUÍ ESTÁN TUS MÓDULOS DE VENTAS:
         { id: 'sales', label: 'Ventas', icon: BookOpen },
         { id: 'separados', label: 'Gestión de Separados', icon: BookmarkCheck },
         { id: 'orders', label: 'Pedidos', icon: FileText },
-        { id: 'clients', label: 'Clientes', icon: Users, disabledNote: 'Módulo de Danilo Velásquez' }
+        { id: 'clients', label: 'Clientes', icon: Users }
       ]
     },
     {
       title: 'MEDICIÓN Y DESEMPEÑO',
       icon: LayoutDashboard,
       items: [
-        // AQUÍ ESTÁ TU MÓDULO DE DASHBOARD:
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }
       ]
     }

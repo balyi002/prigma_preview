@@ -1,17 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Ventas from './features/sales/Ventas';
-import GestionSeparados from './features/sales/GestionSeparados';
 import { LoginScreen, authService } from './features/auth';
-import { RolesPage } from './features/roles';
-import { ProductCategoriesPage } from './features/product-categories';
-import { OrdersPage } from './features/orders';
-import { ProductsPage } from './features/products';
-import { EmployeesPage } from './features/employees';
-import { ServiceCategoriesPage } from './features/service-categories';
 import Sidebar from './components/layout/Sidebar';
 import Navbar from './components/layout/Navbar';
-import DashboardPlaceholder from './components/layout/DashboardPlaceholder';
-import { AlertCircle } from 'lucide-react';
+import RouterApp from './routes/RouterApp';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser());
@@ -55,88 +46,6 @@ function App() {
     );
   }
 
-  // Mapeo de vistas activas
-  const renderCurrentView = () => {
-    switch (currentView) {
-      case 'dashboard':
-        return <DashboardPlaceholder />;
-
-      case 'roles':
-        return <RolesPage />;
-
-      case 'product-categories':
-        return <ProductCategoriesPage />;
-
-      case 'orders':
-        return <OrdersPage currentUser={currentUser} />;
-
-      case 'products':
-        return <ProductsPage />;
-
-      case 'employees':
-        return <EmployeesPage />;
-
-      case 'service-categories':
-        return <ServiceCategoriesPage />;
-
-      case 'pos':
-        return (
-          <OrdersPage
-            currentUser={currentUser}
-            defaultToPOS={true}
-            onNavigateBack={() => setCurrentView('orders')}
-          />
-        );
-
-      // ==========================================
-      // TUS MÓDULOS DE VENTAS Y SEPARADOS:
-      // ==========================================
-      case 'sales':
-        return <Ventas />;
-
-      case 'separados':
-        return <GestionSeparados />;
-
-      default:
-        // Placeholder para los módulos correspondientes a los demás compañeros de equipo
-        const teamResponsibilityMap = {
-          users: 'Danilo Velásquez (Gestión de Usuarios)',
-          suppliers: 'Danilo Velásquez (Proveedores)',
-          clients: 'Danilo Velásquez (Clientes)',
-          products: 'Diego Agudelo (Gestión de Productos)',
-          'service-categories': 'Diego Agudelo (Categoría de Servicios)',
-          employees: 'Diego Agudelo (Empleados)',
-          purchases: 'Yojhan Barrada (Gestión de Compras)',
-          services: 'Yojhan Barrada (Gestión de Servicios)',
-          agenda: 'Yojhan Barrada (Agenda)'
-        };
-
-        const responsible = teamResponsibilityMap[currentView] || 'Equipo de desarrollo';
-
-        return (
-          <div className="bg-card border border-border rounded-2xl p-12 text-center space-y-4 max-w-lg mx-auto my-12 shadow-xs">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-black text-lg text-foreground capitalize">
-                {currentView.replace('-', ' ')}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Este módulo se encuentra en desarrollo por <strong>{responsible}</strong>.
-              </p>
-            </div>
-            <button
-              onClick={() => setCurrentView('roles')}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:opacity-90 transition-opacity cursor-pointer shadow-sm"
-            >
-              Ir a Gestión de Roles
-            </button>
-          </div>
-        );
-    }
-  };
-
   return (
     <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
       {/* Sidebar Fijo a la Izquierda */}
@@ -160,7 +69,11 @@ function App() {
 
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-7xl mx-auto">
-            {renderCurrentView()}
+            <RouterApp
+              currentView={currentView}
+              onNavigate={setCurrentView}
+              currentUser={currentUser}
+            />
           </div>
         </main>
       </div>
