@@ -56,7 +56,8 @@ export default function POSView({ onBackToOrders, currentUser }) {
       categoria: p.nombre_categoria || 'Varios',
       precio: Number(p.precio_venta),
       stock: p.stock,
-      estado: p.estado
+      estado: p.estado,
+      imagen: p.imagen || null
     }));
 
     const servs = (catalog.servicios || []).map((s) => ({
@@ -351,14 +352,30 @@ export default function POSView({ onBackToOrders, currentUser }) {
                   >
                     {/* Badge de cantidad en carrito */}
                     {inCart && (
-                      <span className="absolute top-2 right-2 bg-primary text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-xs">
+                      <span className="absolute top-2 right-2 bg-primary text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center shadow-xs z-10">
                         ×{inCart.qty}
                       </span>
                     )}
 
-                    <span className="text-3xl mt-1 select-none">
-                      {getCategoryEmoji(item.categoria, item.tipo)}
-                    </span>
+                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted/40 border border-border/50 flex items-center justify-center my-1 flex-shrink-0">
+                      {item.imagen ? (
+                        <img
+                          src={item.imagen}
+                          alt={item.nombre}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const sibling = e.currentTarget.parentElement.querySelector('.item-fallback-icon');
+                            if (sibling) sibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <span
+                        className={`text-3xl select-none item-fallback-icon ${item.imagen ? 'hidden' : 'flex'} items-center justify-center`}
+                      >
+                        {getCategoryEmoji(item.categoria, item.tipo)}
+                      </span>
+                    </div>
 
                     <div className="space-y-0.5 w-full">
                       <p className="font-bold text-xs text-foreground line-clamp-2 leading-tight">
@@ -427,8 +444,26 @@ export default function POSView({ onBackToOrders, currentUser }) {
               cart.map((item) => (
                 <div
                   key={item.id_unique}
-                  className="p-2.5 rounded-xl border border-border bg-background flex items-center justify-between gap-2 shadow-2xs"
+                  className="p-2.5 rounded-xl border border-border bg-background flex items-center justify-between gap-2.5 shadow-2xs"
                 >
+                  <div className="w-9 h-9 rounded-lg overflow-hidden bg-muted/50 border border-border/50 flex items-center justify-center flex-shrink-0">
+                    {item.imagen ? (
+                      <img
+                        src={item.imagen}
+                        alt={item.nombre}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const sibling = e.currentTarget.parentElement.querySelector('.cart-fallback-icon');
+                          if (sibling) sibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <span className={`text-base select-none cart-fallback-icon ${item.imagen ? 'hidden' : 'flex'}`}>
+                      {getCategoryEmoji(item.categoria, item.tipo)}
+                    </span>
+                  </div>
+
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-foreground truncate">{item.nombre}</p>
                     <p className="text-[11px] font-mono text-primary font-bold">

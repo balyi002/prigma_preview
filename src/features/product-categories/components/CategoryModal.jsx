@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../../components/ui/Modal';
-import ToggleSwitch from '../../../components/ui/ToggleSwitch';
 
 export default function CategoryModal({
   open,
@@ -11,7 +10,6 @@ export default function CategoryModal({
 }) {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [estado, setEstado] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -19,11 +17,9 @@ export default function CategoryModal({
       if (category) {
         setNombre(category.nombre_categoria || '');
         setDescripcion(category.descripcion || '');
-        setEstado(category.estado !== 0 && category.estado !== false);
       } else {
         setNombre('');
         setDescripcion('');
-        setEstado(true);
       }
       setError('');
     }
@@ -38,8 +34,7 @@ export default function CategoryModal({
 
     onSave({
       nombre_categoria: nombre.trim(),
-      descripcion: descripcion.trim() || null,
-      estado
+      descripcion: descripcion.trim() || null
     });
   };
 
@@ -86,16 +81,6 @@ export default function CategoryModal({
             maxLength={255}
             className="w-full px-3.5 py-2.5 bg-input-background border border-border rounded-xl text-sm font-medium text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-ring transition-all resize-none"
           />
-        </div>
-
-        <div className="flex items-center justify-between p-3 rounded-xl bg-input-background border border-border">
-          <div>
-            <p className="text-xs font-bold text-foreground">Estado de la Categoría</p>
-            <p className="text-[11px] text-muted-foreground">
-              {estado ? 'Visible para registrar productos y compras' : 'Inactiva en el catálogo'}
-            </p>
-          </div>
-          <ToggleSwitch checked={estado} onChange={setEstado} />
         </div>
 
         <div className="flex justify-end gap-3 pt-3 border-t border-border">

@@ -278,28 +278,25 @@ app.get('/api/categorias-producto', (req, res) => {
 });
 
 app.post('/api/categorias-producto', (req, res) => {
-    const { nombre_categoria, descripcion, estado } = req.body;
+    const { nombre_categoria, descripcion } = req.body;
     db.query(
-        'INSERT INTO categorias_producto (nombre_categoria, descripcion, estado) VALUES (?, ?, ?)',
-        [nombre_categoria, descripcion || null, estado !== false ? 1 : 0],
+        'INSERT INTO categorias_producto (nombre_categoria, descripcion) VALUES (?, ?)',
+        [nombre_categoria, descripcion || null],
         (err, result) => (err ? handleErr(res, err) : res.json({ message: 'Categoría creada', id: result.insertId }))
     );
 });
 
 app.put('/api/categorias-producto/:id', (req, res) => {
-    const { nombre_categoria, descripcion, estado } = req.body;
+    const { nombre_categoria, descripcion } = req.body;
     db.query(
-        'UPDATE categorias_producto SET nombre_categoria = ?, descripcion = ?, estado = ? WHERE id_categoria_producto = ?',
-        [nombre_categoria, descripcion || null, estado !== false ? 1 : 0, req.params.id],
+        'UPDATE categorias_producto SET nombre_categoria = ?, descripcion = ? WHERE id_categoria_producto = ?',
+        [nombre_categoria, descripcion || null, req.params.id],
         (err) => (err ? handleErr(res, err) : res.json({ message: 'Categoría actualizada' }))
     );
 });
 
 app.patch('/api/categorias-producto/:id/estado', (req, res) => {
-    const { estado } = req.body;
-    db.query('UPDATE categorias_producto SET estado = ? WHERE id_categoria_producto = ?', [estado ? 1 : 0, req.params.id], (err) =>
-        err ? handleErr(res, err) : res.json({ message: 'Estado de categoría actualizado' })
-    );
+    res.json({ message: 'La columna estado ya no existe en categorias_producto' });
 });
 
 app.delete('/api/categorias-producto/:id', (req, res) => {
@@ -557,8 +554,9 @@ app.delete('/api/clientes/:id', (req, res) => {
 // =====================================================================
 app.get('/api/compras', (req, res) => {
     const sql = `
-    SELECT v.*, pr.nombre_proveedor, cp.nombre_categoria, u.nombre_usuario
+    SELECT v.*, c.id_estado, pr.nombre_proveedor, cp.nombre_categoria, u.nombre_usuario
     FROM vista_compras_resumen v
+    JOIN compras c ON c.id_compra = v.id_compra
     JOIN proveedores pr ON pr.id_proveedor = v.id_proveedor
     JOIN categorias_producto cp ON cp.id_categoria_producto = v.id_categoria_producto
     JOIN usuarios u ON u.id_usuario = v.id_usuario
@@ -630,7 +628,7 @@ app.delete('/api/compras/:id', (req, res) => {
 // =====================================================================
 app.get('/api/pedidos', (req, res) => {
     const sql = `
-    SELECT v.*, c.nombre_cliente, u.nombre_usuario,
+    SELECT v.*, p.id_estado, c.nombre_cliente, u.nombre_usuario,
            COALESCE((SELECT CASE WHEN pg.pago_efectivo = 1 THEN 'Efectivo' ELSE 'Transferencia' END 
                      FROM pagos_pedido pg WHERE pg.id_pedido = v.id_pedido ORDER BY pg.id_pago DESC LIMIT 1), 'Efectivo') AS metodo_pago,
            COALESCE((SELECT SUM(arts.cantidad) FROM (
@@ -639,6 +637,7 @@ app.get('/api/pedidos', (req, res) => {
                SELECT id_pedido, cantidad FROM detalle_pedido_servicios
            ) arts WHERE arts.id_pedido = v.id_pedido), 0) AS total_articulos
     FROM vista_pedidos_resumen v
+    JOIN pedidos p ON p.id_pedido = v.id_pedido
     JOIN clientes c ON c.id_cliente = v.id_cliente
     JOIN usuarios u ON u.id_usuario = v.id_usuario
     ORDER BY v.fecha_pedido DESC`;

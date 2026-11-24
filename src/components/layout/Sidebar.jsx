@@ -18,8 +18,7 @@ import {
   LogOut,
   Sun,
   Moon,
-  ChevronDown,
-  BookmarkCheck // <--- Ícono agregado para Separados
+  ChevronDown
 } from 'lucide-react';
 
 export default function Sidebar({
@@ -70,7 +69,6 @@ export default function Sidebar({
       icon: DollarSign,
       items: [
         { id: 'sales', label: 'Ventas', icon: BookOpen },
-        { id: 'separados', label: 'Gestión de Separados', icon: BookmarkCheck },
         { id: 'orders', label: 'Pedidos', icon: FileText },
         { id: 'clients', label: 'Clientes', icon: Users }
       ]
@@ -95,8 +93,12 @@ export default function Sidebar({
       {/* Cabecera con Logotipo Oficial */}
       <div className="p-5 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm shadow-primary/25">
-            <ShoppingBag className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden p-0.5">
+            <img
+              src="https://github.com/user-attachments/assets/f6f8df77-3049-4267-8d54-f054466943aa"
+              alt="PRIGMA Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
             <p className="font-black text-sm text-sidebar-foreground leading-none tracking-tight">PRIGMA</p>

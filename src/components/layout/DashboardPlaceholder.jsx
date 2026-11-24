@@ -28,7 +28,7 @@ export default function Dashboard() {
       color: 'bg-violet-500/10 text-violet-500 border-violet-500/20'
     },
     {
-      title: 'Separados / Pedidos Activos',
+      title: 'Pedidos Activos',
       value: '4',
       change: '2 por liquidar',
       isPositive: true,

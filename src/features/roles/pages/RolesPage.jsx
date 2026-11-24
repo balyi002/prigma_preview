@@ -4,28 +4,24 @@ import { roleService } from '../services/roleService';
 import RoleModal from '../components/RoleModal';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import { CANONICAL_PERMISOS, normalizePermName, isDashboardPerm } from '../utils/roleConstants';
 
 export default function RolesPage() {
   const [roles, setRoles] = useState([]);
+  const [allPermisos, setAllPermisos] = useState(CANONICAL_PERMISOS);
   const [allPermisosPrivilegios, setAllPermisosPrivilegios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
   const [confirmState, setConfirmState] = useState({ open: false, title: '', message: '', onConfirm: null });
 
-  // Lista canónica de los 14 permisos del sistema según el diseño oficial
-  const canonicalPerms = [
-    'Dashboard', 'Roles', 'Gestión de Usuarios', 'Categoría de Productos',
-    'Gestión de Productos', 'Proveedores', 'Gestión de Compras', 'Categoría de Servicios',
-    'Gestión de Servicios', 'Empleados', 'Agenda', 'Pedidos', 'Clientes', 'Ventas'
-  ];
-
   const fetchRolesData = async () => {
     try {
       setLoading(true);
-      const [rolesData, ppsData] = await Promise.all([
+      const [rolesData, ppsData, permsData] = await Promise.all([
         roleService.getRoles(),
-        roleService.getPermisosPrivilegios()
+        roleService.getPermisosPrivilegios(),
+        roleService.getPermisos().catch(() => CANONICAL_PERMISOS)
       ]);
 
       // Cargar permisos asignados para cada rol
@@ -41,7 +37,16 @@ export default function RolesPage() {
         })
       );
 
+      // Asegurar que la lista de permisos respete el orden por id_permiso (1..14)
+      const mergedPerms = (Array.isArray(permsData) && permsData.length > 0)
+        ? CANONICAL_PERMISOS.map((cp) => {
+            const fromDb = permsData.find((p) => p.id_permiso === cp.id_permiso);
+            return fromDb ? { ...cp, ...fromDb, label: cp.label } : cp;
+          })
+        : CANONICAL_PERMISOS;
+
       setRoles(rolesWithPerms);
+      setAllPermisos(mergedPerms);
       setAllPermisosPrivilegios(ppsData);
     } catch (err) {
       console.error('Error cargando roles:', err);
@@ -124,11 +129,22 @@ export default function RolesPage() {
   };
 
   // Helper para verificar si un rol tiene activo un permiso canónico
-  const hasPermiso = (role, permName) => {
+  const hasPermiso = (role, perm) => {
+    // Si es Dashboard: en la base de datos no tiene privilegios, por lo que no se deben validar privilegios
+    if (isDashboardPerm(perm)) {
+      return true;
+    }
     if (!role.assignedPermisos || !Array.isArray(role.assignedPermisos)) return false;
-    return role.assignedPermisos.some(
-      (p) => p.nombre_permiso === permName && Boolean(p.estado_permiso)
-    );
+
+    const permId = typeof perm === 'object' ? perm.id_permiso : null;
+    const permName = typeof perm === 'object' ? perm.nombre_permiso || perm.label : perm;
+    const norm = normalizePermName(permName);
+
+    return role.assignedPermisos.some((p) => {
+      if (!p.estado_permiso) return false;
+      if (permId && p.id_permiso === permId) return true;
+      return normalizePermName(p.nombre_permiso) === norm;
+    });
   };
 
   return (
@@ -224,11 +240,12 @@ export default function RolesPage() {
                     PERMISOS ASIGNADOS
                   </p>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {canonicalPerms.map((permName) => {
-                      const active = hasPermiso(role, permName);
+                    {allPermisos.map((perm) => {
+                      const active = hasPermiso(role, perm);
+                      const displayName = perm.label || perm.nombre_permiso;
                       return (
                         <div
-                          key={permName}
+                          key={perm.id_permiso || displayName}
                           className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                             active
                               ? 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300 border border-green-200/60 dark:border-green-800/40'
@@ -240,7 +257,7 @@ export default function RolesPage() {
                           ) : (
                             <X className="w-3.5 h-3.5 flex-shrink-0 stroke-[2.5]" />
                           )}
-                          <span className="truncate">{permName}</span>
+                          <span className="truncate">{displayName}</span>
                         </div>
                       );
                     })}
@@ -258,6 +275,7 @@ export default function RolesPage() {
         onClose={() => setModalOpen(false)}
         onSave={handleSaveRole}
         role={editingRole}
+        allPermisos={allPermisos}
         allPermisosPrivilegios={allPermisosPrivilegios}
       />
 

@@ -56,6 +56,9 @@ export const printTicket = (order) => {
   </style>
 </head>
 <body>
+  <div style="text-align:center; margin-bottom: 6px;">
+    <img src="https://github.com/user-attachments/assets/f6f8df77-3049-4267-8d54-f054466943aa" alt="Logo PRIGMA" style="width: 48px; height: 48px; object-fit: contain;" />
+  </div>
   <h2>Variedades Carito</h2>
   <p class="sub">CRA. 25 #75C-01 Int. 499 · Medellín</p>
   <p class="sub">NIT: 901.234.567-8</p>
