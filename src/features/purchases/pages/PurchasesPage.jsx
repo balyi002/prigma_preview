@@ -8,6 +8,7 @@ import PurchaseFormModal from '../components/PurchaseFormModal';
 import PurchaseDetailModal from '../components/PurchaseDetailModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Toast from '../components/Toast';
+import { getStatusName } from '../utils/purchaseStatus';
 
 /**
  * Gestión de Compras.
@@ -23,8 +24,10 @@ export default function PurchasesPage({ currentUser = null }) {
     reload,
     fetchDetail,
     createPurchase,
+    updatePurchase,
     changeStatus,
     addLine,
+    updateLine,
     removeLine,
     deletePurchase,
   } = usePurchases(catalogs);
@@ -33,9 +36,17 @@ export default function PurchasesPage({ currentUser = null }) {
   const [modal, setModal] = useState(null); // { type: 'create' | 'edit' | 'detail', purchase? }
   const [deleting, setDeleting] = useState(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [statusConfirm, setStatusConfirm] = useState(null); // { purchase, idEstado, nextName }
+  const [statusBusy, setStatusBusy] = useState(false);
   const [toast, setToast] = useState(null);
   const closeToast = useCallback(() => setToast(null), []);
-  const notify = (type, message) => setToast({ type, message });
+  const notify = useCallback((type, payload) => {
+    if (typeof payload === 'string') {
+      setToast({ type, message: payload });
+    } else {
+      setToast({ type, ...payload });
+    }
+  }, []);
   const closeModal = useCallback(() => setModal(null), []);
 
   const filtered = useMemo(() => {
@@ -55,13 +66,26 @@ export default function PurchasesPage({ currentUser = null }) {
     setModal(null);
   };
 
-  // El select solo cambia cuando el servidor confirma: si un trigger lo rechaza, muestra el motivo.
-  const handleStatusChange = async (purchase, idEstado) => {
+  const handleStatusChange = (purchase, idEstado) => {
+    const target = catalogs.estados.find((e) => Number(e.id_estado) === Number(idEstado));
+    setStatusConfirm({
+      purchase,
+      idEstado,
+      nextName: getStatusName(target) || 'el nuevo estado',
+    });
+  };
+
+  const confirmStatusChange = async () => {
+    if (!statusConfirm) return;
+    setStatusBusy(true);
     try {
-      await changeStatus(purchase.id, idEstado);
-      notify('success', `Compra ${purchase.code} actualizada.`);
+      await changeStatus(statusConfirm.purchase.id, statusConfirm.idEstado);
+      notify('success', `Compra ${statusConfirm.purchase.code} actualizada a ${statusConfirm.nextName}.`);
     } catch (err) {
       notify('error', err.message);
+    } finally {
+      setStatusBusy(false);
+      setStatusConfirm(null);
     }
   };
 
@@ -159,6 +183,7 @@ export default function PurchasesPage({ currentUser = null }) {
           catalogs={catalogs}
           defaultUserId={currentUser?.id_usuario}
           onCreate={handleCreate}
+          onNotify={notify}
           onClose={closeModal}
         />
       )}
@@ -169,8 +194,11 @@ export default function PurchasesPage({ currentUser = null }) {
           purchase={modal.purchase}
           catalogs={catalogs}
           fetchDetail={fetchDetail}
+          onUpdatePurchase={updatePurchase}
           onAddLine={addLine}
+          onUpdateLine={updateLine}
           onRemoveLine={removeLine}
+          onNotify={notify}
           onClose={closeModal}
         />
       )}
@@ -179,10 +207,24 @@ export default function PurchasesPage({ currentUser = null }) {
         <PurchaseDetailModal purchase={modal.purchase} fetchDetail={fetchDetail} onClose={closeModal} />
       )}
 
+      {statusConfirm && (
+        <ConfirmDialog
+          variant="warning"
+          title={`¿Cambiar estado de ${statusConfirm.purchase.code}?`}
+          message={`La compra pasará de «${statusConfirm.purchase.estado || 'Sin estado'}» a «${statusConfirm.nextName}».`}
+          confirmLabel="Confirmar"
+          loading={statusBusy}
+          onConfirm={confirmStatusChange}
+          onClose={() => setStatusConfirm(null)}
+        />
+      )}
+
       {deleting && (
         <ConfirmDialog
-          title="Eliminar compra"
-          message={`¿Eliminar la compra ${deleting.code} de ${deleting.proveedor} con todos sus productos? Esta acción no se puede deshacer.`}
+          variant="danger"
+          title={`¿Eliminar permanentemente la compra ${deleting.code}?`}
+          message={`Se eliminará la compra de ${deleting.proveedor} junto con todos sus productos. Esta acción no se puede deshacer.`}
+          confirmLabel="Confirmar"
           loading={deleteBusy}
           onConfirm={handleDelete}
           onClose={() => setDeleting(null)}

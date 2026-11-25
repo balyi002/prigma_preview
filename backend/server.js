@@ -597,6 +597,38 @@ app.post('/api/compras/:id/detalle', (req, res) => {
     );
 });
 
+app.put('/api/compras/:id', (req, res) => {
+    const { num_factura_proveedor, id_proveedor, id_categoria_producto, id_usuario, id_estado } = req.body;
+    const sql = `UPDATE compras
+    SET num_factura_proveedor = ?, id_proveedor = ?, id_categoria_producto = ?, id_usuario = ?, id_estado = ?
+    WHERE id_compra = ?`;
+    db.query(
+        sql,
+        [num_factura_proveedor, id_proveedor, id_categoria_producto, id_usuario, id_estado, req.params.id],
+        (err, result) => {
+            if (err) return handleErr(res, err);
+            if (result.affectedRows === 0) return res.status(404).json({ error: 'Compra no encontrada' });
+            return res.json({ message: 'Compra actualizada' });
+        }
+    );
+});
+
+app.put('/api/compras/:id/detalle/:idDetalle', (req, res) => {
+    const { id_producto, cantidad, precio_unitario, porcentaje_descuento, porcentaje_iva } = req.body;
+    const sql = `UPDATE detalle_compras
+    SET id_producto = ?, cantidad = ?, precio_unitario = ?, porcentaje_descuento = ?, porcentaje_iva = ?
+    WHERE id_compra = ? AND id_detalle_compra = ?`;
+    db.query(
+        sql,
+        [id_producto, cantidad, precio_unitario, porcentaje_descuento || 0, porcentaje_iva || 0, req.params.id, req.params.idDetalle],
+        (err, result) => {
+            if (err) return handleErr(res, err);
+            if (result.affectedRows === 0) return res.status(404).json({ error: 'Detalle de compra no encontrado' });
+            return res.json({ message: 'Producto actualizado en la compra' });
+        }
+    );
+});
+
 app.patch('/api/compras/:id/estado', (req, res) => {
     const { id_estado } = req.body;
     db.query('UPDATE compras SET id_estado = ? WHERE id_compra = ?', [id_estado, req.params.id], (err) =>

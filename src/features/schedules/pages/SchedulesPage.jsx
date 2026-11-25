@@ -19,7 +19,13 @@ export default function SchedulesPage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [toast, setToast] = useState(null);
   const closeToast = useCallback(() => setToast(null), []);
-  const notify = (type, message) => setToast({ type, message });
+  const notify = useCallback((type, payload) => {
+    if (typeof payload === 'string') {
+      setToast({ type, message: payload });
+    } else {
+      setToast({ type, ...payload });
+    }
+  }, []);
 
   const todayIso = toISODate(new Date());
 
@@ -198,14 +204,17 @@ export default function SchedulesPage() {
             setForm(null);
             setDeleting(schedule);
           }}
+          onNotify={notify}
           onClose={() => setForm(null)}
         />
       )}
 
       {deleting && (
         <ConfirmDialog
-          title="Eliminar turno"
-          message={`¿Quitar el turno de ${deleting.nombre} ${deleting.apellido} del ${deleting.fecha}? Esta acción no se puede deshacer.`}
+          variant="danger"
+          title="¿Eliminar permanentemente este turno?"
+          message={`Se quitará el turno de ${deleting.nombre} ${deleting.apellido} del ${deleting.fecha}. Esta acción no se puede deshacer.`}
+          confirmLabel="Confirmar"
           loading={deleteBusy}
           onConfirm={handleDelete}
           onClose={() => setDeleting(null)}
