@@ -194,13 +194,15 @@ app.put('/api/roles/:id/permisos', (req, res) => {
 // 2. USUARIOS / EMPLEADOS Y AGENDA (HORARIOS)
 // =====================================================================
 app.get('/api/usuarios', (req, res) => {
+    const excluirAdmin = req.query.excluir_admin === 'true';
     const sql = `
     SELECT u.id_usuario, u.nombre_usuario, u.apellido_usuario, u.id_tipo_documento,
            td.descripcion AS tipo_documento, u.documento, u.telefono,
            u.id_rol, r.nombre_rol, u.estado, u.fecha_creacion
     FROM usuarios u
     JOIN tipos_documento td ON td.id_tipo_documento = u.id_tipo_documento
-    JOIN roles r ON r.id_rol = u.id_rol`;
+    JOIN roles r ON r.id_rol = u.id_rol
+    ${excluirAdmin ? "WHERE LOWER(r.nombre_rol) NOT LIKE '%admin%'" : ''}`;
     db.query(sql, (err, rows) => (err ? handleErr(res, err) : res.json(rows)));
 });
 
@@ -311,6 +313,51 @@ app.delete('/api/categorias-producto/:id', (req, res) => {
     );
 });
 
+const fs = require('fs');
+const PRODUCT_UPLOADS_DIR = path.join(__dirname, 'uploads', 'productos');
+const IMAGE_MIME_EXT = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif'
+};
+
+app.use('/uploads/productos', express.static(PRODUCT_UPLOADS_DIR));
+
+app.post(
+    '/api/productos/imagen',
+    express.raw({ type: ['image/*', 'application/octet-stream'], limit: '5mb' }),
+    (req, res) => {
+        const contentType = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+        const ext = IMAGE_MIME_EXT[contentType];
+        if (!ext) {
+            return res.status(400).json({ error: 'Formato de imagen no válido. Usa JPG, PNG, WEBP o GIF.' });
+        }
+        if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+            return res.status(400).json({ error: 'No se recibió ninguna imagen válida.' });
+        }
+
+        fs.mkdir(PRODUCT_UPLOADS_DIR, { recursive: true }, (dirErr) => {
+            if (dirErr) return handleErr(res, dirErr);
+            const filename = `prod_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+            const filePath = path.join(PRODUCT_UPLOADS_DIR, filename);
+            fs.writeFile(filePath, req.body, (writeErr) => {
+                if (writeErr) return handleErr(res, writeErr);
+                const url = `${req.protocol}://${req.get('host')}/uploads/productos/${filename}`;
+                return res.json({ url });
+            });
+        });
+    }
+);
+
+app.use('/api/productos/imagen', (err, req, res, next) => {
+    if (err && err.type === 'entity.too.large') {
+        return res.status(413).json({ error: 'La imagen supera el tamaño máximo permitido de 5 MB.' });
+    }
+    return next(err);
+});
+
 app.get('/api/productos', (req, res) => {
     const sql = `
     SELECT p.*, c.nombre_categoria
@@ -321,6 +368,9 @@ app.get('/api/productos', (req, res) => {
 
 app.post('/api/productos', (req, res) => {
     const { nombre_producto, precio_venta, costo, stock, stock_minimo, imagen, id_categoria_producto } = req.body;
+    if (imagen && String(imagen).trim().length > 255) {
+        return res.status(400).json({ error: 'La URL de la imagen no puede superar los 255 caracteres.' });
+    }
     const sql = `INSERT INTO productos 
     (nombre_producto, precio_venta, costo, stock, stock_minimo, imagen, id_categoria_producto, estado)
     VALUES (?, ?, ?, ?, ?, ?, ?, TRUE)`;
@@ -333,6 +383,9 @@ app.post('/api/productos', (req, res) => {
 
 app.put('/api/productos/:id', (req, res) => {
     const { nombre_producto, precio_venta, costo, stock, stock_minimo, imagen, id_categoria_producto } = req.body;
+    if (imagen && String(imagen).trim().length > 255) {
+        return res.status(400).json({ error: 'La URL de la imagen no puede superar los 255 caracteres.' });
+    }
     const sql = `UPDATE productos 
     SET nombre_producto = ?, precio_venta = ?, costo = ?, stock = ?, stock_minimo = ?, imagen = ?, id_categoria_producto = ?
     WHERE id_producto = ?`;

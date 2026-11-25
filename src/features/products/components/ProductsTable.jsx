@@ -1,7 +1,30 @@
-import React from 'react';
-import { Edit2, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Edit2, Trash2, Package } from 'lucide-react';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
 import { formatCOP } from '../../../utils/format';
+
+function ProductThumbnail({ src, alt }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  return (
+    <div className="w-10 h-10 rounded-xl overflow-hidden bg-muted/50 border border-border flex items-center justify-center flex-shrink-0">
+      {src && !failed ? (
+        <img
+          src={src}
+          alt={alt}
+          className="w-full h-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <Package className="w-4 h-4 text-muted-foreground" />
+      )}
+    </div>
+  );
+}
 
 export default function ProductsTable({
   products = [],
@@ -58,15 +81,18 @@ export default function ProductsTable({
                 key={p.id_producto}
                 className="hover:bg-muted/40 transition-colors group"
               >
-                {/* Nombre y Código */}
+                {/* Imagen pequeña, Nombre y Código */}
                 <td className="py-3.5 px-4">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-foreground text-sm group-hover:text-primary transition-colors">
-                      {p.nombre_producto}
-                    </span>
-                    <span className="text-[11px] font-mono text-muted-foreground">
-                      {getProductCode(p.id_producto)}
-                    </span>
+                  <div className="flex items-center gap-3">
+                    <ProductThumbnail src={p.imagen} alt={p.nombre_producto} />
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-bold text-foreground text-sm group-hover:text-primary transition-colors truncate">
+                        {p.nombre_producto}
+                      </span>
+                      <span className="text-[11px] font-mono text-muted-foreground">
+                        {getProductCode(p.id_producto)}
+                      </span>
+                    </div>
                   </div>
                 </td>
 

@@ -1,9 +1,11 @@
 import api from '../../../utils/api';
 
 export const employeeService = {
-  // Obtiene el listado completo de usuarios/empleados desde la base de datos
+  // Obtiene el listado de empleados (excluye administradores) desde la base de datos
   getEmployees: async () => {
-    const res = await api.get('/usuarios');
+    const res = await api.get('/usuarios', {
+      params: { excluir_admin: 'true' }
+    });
     return res.data;
   },
 
