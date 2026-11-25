@@ -31,6 +31,16 @@ export const productService = {
     return res.data;
   },
 
+  // Subir imagen del producto al servidor
+  uploadProductImage: async (file) => {
+    const res = await api.post('/productos/imagen', file, {
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream'
+      }
+    });
+    return res.data.url;
+  },
+
   // Obtener categorías de productos para el selector del formulario
   getCategories: async () => {
     const res = await api.get('/categorias-producto');

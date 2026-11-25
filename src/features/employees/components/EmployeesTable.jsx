@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2 } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
 
 const AVATAR_COLORS = [
@@ -100,11 +100,13 @@ export default function EmployeesTable({
                 {/* Acciones */}
                 <td className="py-3.5 px-4 text-right">
                   <button
+                    type="button"
                     onClick={() => onViewEmployee(emp)}
-                    title="Ver Ficha del Empleado"
-                    className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-muted transition-colors cursor-pointer"
+                    title="Ver detalles del empleado"
+                    aria-label={`Ver detalles de ${fullName}`}
+                    className="p-2 rounded-lg text-sky-500 hover:bg-sky-500/10 transition-colors cursor-pointer"
                   >
-                    <Edit2 className="w-4 h-4 text-pink-500" />
+                    <Eye className="w-4 h-4" />
                   </button>
                 </td>
               </tr>
