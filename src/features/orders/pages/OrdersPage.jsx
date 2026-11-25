@@ -21,6 +21,7 @@ import AbonarModal from '../components/AbonarModal';
 import AddItemsModal from '../components/AddItemsModal';
 import POSView from '../components/POSView';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import FeedbackToast from '../../../components/ui/FeedbackToast';
 import Pagination from '../../../components/ui/Pagination';
 
 const ITEMS_PER_PAGE = 5;
@@ -37,6 +38,7 @@ export default function OrdersPage({ currentUser, defaultToPOS = false, onNaviga
   const [selectedOrderForAbono, setSelectedOrderForAbono] = useState(null);
   const [selectedOrderForAdd, setSelectedOrderForAdd] = useState(null);
   const [confirmState, setConfirmState] = useState({ open: false, title: '', message: '', onConfirm: null });
+  const [toast, setToast] = useState(null);
 
   const fetchOrders = async () => {
     try {
@@ -126,10 +128,11 @@ export default function OrdersPage({ currentUser, defaultToPOS = false, onNaviga
             await orderService.updateOrderStatus(order.id_pedido, 4); // 4 = Completado
             setConfirmState({ open: false, title: '', message: '', onConfirm: null });
             await fetchOrders();
+            setToast({ type: 'success', message: `Pedido ${idFormatted} liquidado y completado exitosamente.` });
           } catch (err) {
             console.error('Error completando pedido:', err);
-            alert(err.response?.data?.error || err.message || 'Error al completar pedido');
             setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+            setToast({ type: 'error', message: err.response?.data?.error || err.message || 'Error al completar pedido' });
           }
         }
       });
@@ -144,10 +147,11 @@ export default function OrdersPage({ currentUser, defaultToPOS = false, onNaviga
             await orderService.updateOrderStatus(order.id_pedido, 4);
             setConfirmState({ open: false, title: '', message: '', onConfirm: null });
             await fetchOrders();
+            setToast({ type: 'success', message: `Pedido ${idFormatted} completado exitosamente.` });
           } catch (err) {
             console.error('Error al completar pedido:', err);
-            alert(err.response?.data?.error || err.message || 'Error al completar pedido');
             setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+            setToast({ type: 'error', message: err.response?.data?.error || err.message || 'Error al completar pedido' });
           }
         }
       });
@@ -166,10 +170,11 @@ export default function OrdersPage({ currentUser, defaultToPOS = false, onNaviga
           await orderService.deleteOrder(order.id_pedido);
           setOrders((prev) => prev.filter((o) => o.id_pedido !== order.id_pedido));
           setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+          setToast({ type: 'success', message: `Pedido ${idFormatted} eliminado correctamente.` });
         } catch (err) {
           console.error('Error eliminando pedido:', err);
-          alert(err.response?.data?.error || err.message || 'Error al eliminar pedido');
           setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+          setToast({ type: 'error', message: err.response?.data?.error || err.message || 'Error al eliminar pedido' });
         }
       }
     });
@@ -699,7 +704,10 @@ export default function OrdersPage({ currentUser, defaultToPOS = false, onNaviga
         open={Boolean(selectedOrderForAbono)}
         onClose={() => setSelectedOrderForAbono(null)}
         order={selectedOrderForAbono}
-        onAbonoSuccess={fetchOrders}
+        onAbonoSuccess={() => {
+          fetchOrders();
+          setToast({ type: 'success', message: 'Abono registrado exitosamente al pedido.' });
+        }}
       />
 
       {/* Modal de Añadir Artículos */}
@@ -707,7 +715,10 @@ export default function OrdersPage({ currentUser, defaultToPOS = false, onNaviga
         open={Boolean(selectedOrderForAdd)}
         onClose={() => setSelectedOrderForAdd(null)}
         order={selectedOrderForAdd}
-        onItemsAdded={fetchOrders}
+        onItemsAdded={() => {
+          fetchOrders();
+          setToast({ type: 'success', message: 'Artículos agregados al pedido exitosamente.' });
+        }}
       />
 
       {/* Diálogo de Confirmación */}
@@ -718,6 +729,9 @@ export default function OrdersPage({ currentUser, defaultToPOS = false, onNaviga
         onConfirm={confirmState.onConfirm}
         onCancel={() => setConfirmState({ open: false, title: '', message: '', onConfirm: null })}
       />
+
+      {/* Notificaciones Toast */}
+      <FeedbackToast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

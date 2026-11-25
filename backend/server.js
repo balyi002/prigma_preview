@@ -220,7 +220,7 @@ app.get('/api/usuarios', (req, res) => {
     const sql = `
     SELECT u.id_usuario, u.nombre_usuario, u.apellido_usuario, u.id_tipo_documento,
            td.descripcion AS tipo_documento, u.documento, u.telefono,
-           u.id_rol, r.nombre_rol, u.estado, u.fecha_creacion
+           u.id_rol, r.nombre_rol, u.estado
     FROM usuarios u
     JOIN tipos_documento td ON td.id_tipo_documento = u.id_tipo_documento
     JOIN roles r ON r.id_rol = u.id_rol
@@ -609,12 +609,30 @@ app.post('/api/clientes', (req, res) => {
 });
 
 app.put('/api/clientes/:id', (req, res) => {
-    const { nombre_cliente } = req.body;
-    db.query(
-        'UPDATE clientes SET nombre_cliente = ? WHERE id_cliente = ?',
-        [nombre_cliente, req.params.id],
-        (err) => (err ? handleErr(res, err) : res.json({ message: 'Cliente actualizado' }))
-    );
+    const { nombre_cliente, documento } = req.body;
+    if (documento !== undefined) {
+        db.query(
+            'UPDATE clientes SET nombre_cliente = ?, documento = ? WHERE id_cliente = ?',
+            [nombre_cliente, documento, req.params.id],
+            (err) => {
+                if (err) {
+                    db.query(
+                        'UPDATE clientes SET nombre_cliente = ? WHERE id_cliente = ?',
+                        [nombre_cliente, req.params.id],
+                        (err2) => (err2 ? handleErr(res, err2) : res.json({ message: 'Cliente actualizado' }))
+                    );
+                } else {
+                    res.json({ message: 'Cliente actualizado' });
+                }
+            }
+        );
+    } else {
+        db.query(
+            'UPDATE clientes SET nombre_cliente = ? WHERE id_cliente = ?',
+            [nombre_cliente, req.params.id],
+            (err) => (err ? handleErr(res, err) : res.json({ message: 'Cliente actualizado' }))
+        );
+    }
 });
 
 app.patch('/api/clientes/:id/estado', (req, res) => {

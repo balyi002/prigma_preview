@@ -3,6 +3,7 @@ import { Plus, Search, Edit2, Trash2, Tag, AlertTriangle } from 'lucide-react';
 import { categoryService } from '../services/categoryService';
 import CategoryModal from '../components/CategoryModal';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import FeedbackToast from '../../../components/ui/FeedbackToast';
 import Pagination from '../../../components/ui/Pagination';
 
 const ITEMS_PER_PAGE = 5;
@@ -15,6 +16,7 @@ export default function ProductCategoriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [confirmState, setConfirmState] = useState({ open: false, title: '', message: '', onConfirm: null });
+  const [toast, setToast] = useState(null);
 
   const fetchCategories = async () => {
     try {
@@ -65,15 +67,17 @@ export default function ProductCategoriesPage() {
     try {
       if (editingCategory) {
         await categoryService.updateCategory(editingCategory.id_categoria_producto, formData);
+        setToast({ type: 'success', message: `Categoría "${formData.nombre_categoria}" actualizada exitosamente.` });
       } else {
         await categoryService.createCategory(formData);
+        setToast({ type: 'success', message: `Categoría "${formData.nombre_categoria}" creada exitosamente.` });
       }
       setModalOpen(false);
       setEditingCategory(null);
       await fetchCategories();
     } catch (err) {
       console.error('Error guardando categoría:', err);
-      alert(err.response?.data?.error || err.message || 'Error al guardar la categoría');
+      setToast({ type: 'error', message: err.response?.data?.error || err.message || 'Error al guardar la categoría' });
     }
   };
 
@@ -89,10 +93,11 @@ export default function ProductCategoriesPage() {
             prev.filter((c) => c.id_categoria_producto !== cat.id_categoria_producto)
           );
           setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+          setToast({ type: 'success', message: `Categoría "${cat.nombre_categoria}" eliminada exitosamente.` });
         } catch (err) {
           console.error('Error eliminando categoría:', err);
-          alert(err.response?.data?.error || err.message || 'No se puede eliminar la categoría');
           setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+          setToast({ type: 'error', message: err.response?.data?.error || err.message || 'No se puede eliminar la categoría' });
         }
       }
     });
@@ -226,6 +231,9 @@ export default function ProductCategoriesPage() {
         onConfirm={confirmState.onConfirm}
         onCancel={() => setConfirmState({ open: false, title: '', message: '', onConfirm: null })}
       />
+
+      {/* Notificaciones Toast */}
+      <FeedbackToast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }
