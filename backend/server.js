@@ -45,6 +45,12 @@ const handleErr = (res, err) => {
     if (err.errno === 1062 || err.code === 'ER_DUP_ENTRY') {
         return res.status(400).json({ error: 'Ya existe un registro con ese documento o nombre único.' });
     }
+    // Error por restricción CHECK (precios o cantidades inválidas)
+    if (err.errno === 3819 || err.code === 'ER_CHECK_CONSTRAINT_VIOLATED') {
+        return res.status(400).json({
+            error: 'Uno de los valores ingresados no es válido (verifica precios o cantidades).'
+        });
+    }
     return res.status(500).json({ error: err.sqlMessage || err.message });
 };
 
@@ -475,25 +481,25 @@ app.get('/api/servicios', (req, res) => {
 });
 
 app.post('/api/servicios', (req, res) => {
-    const { nombre_servicio, id_categoria_servicio, precio_venta, costo, duracion_minutos } = req.body;
+    const { nombre_servicio, id_categoria_servicio, precio_venta, costo } = req.body;
     const sql = `INSERT INTO servicios 
-    (nombre_servicio, id_categoria_servicio, precio_venta, costo, duracion_minutos, estado)
-    VALUES (?, ?, ?, ?, ?, TRUE)`;
+    (nombre_servicio, id_categoria_servicio, precio_venta, costo, estado)
+    VALUES (?, ?, ?, ?, TRUE)`;
     db.query(
         sql,
-        [nombre_servicio, id_categoria_servicio, precio_venta, costo, duracion_minutos],
+        [nombre_servicio, id_categoria_servicio, precio_venta, costo],
         (err, result) => (err ? handleErr(res, err) : res.json({ message: 'Servicio creado', id: result.insertId }))
     );
 });
 
 app.put('/api/servicios/:id', (req, res) => {
-    const { nombre_servicio, id_categoria_servicio, precio_venta, costo, duracion_minutos } = req.body;
+    const { nombre_servicio, id_categoria_servicio, precio_venta, costo } = req.body;
     const sql = `UPDATE servicios 
-    SET nombre_servicio = ?, id_categoria_servicio = ?, precio_venta = ?, costo = ?, duracion_minutos = ?
+    SET nombre_servicio = ?, id_categoria_servicio = ?, precio_venta = ?, costo = ?
     WHERE id_servicio = ?`;
     db.query(
         sql,
-        [nombre_servicio, id_categoria_servicio, precio_venta, costo, duracion_minutos, req.params.id],
+        [nombre_servicio, id_categoria_servicio, precio_venta, costo, req.params.id],
         (err) => (err ? handleErr(res, err) : res.json({ message: 'Servicio actualizado' }))
     );
 });

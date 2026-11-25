@@ -6,7 +6,6 @@ const normalize = (s) => ({
   ...s,
   precio_venta: Number(s.precio_venta) || 0,
   costo: Number(s.costo) || 0,
-  duracion_minutos: Number(s.duracion_minutos) || 0,
   estado: Boolean(s.estado),
 });
 
