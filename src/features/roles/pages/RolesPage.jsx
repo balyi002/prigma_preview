@@ -4,6 +4,7 @@ import { roleService } from '../services/roleService';
 import RoleModal from '../components/RoleModal';
 import ToggleSwitch from '../../../components/ui/ToggleSwitch';
 import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import FeedbackToast from '../../../components/ui/FeedbackToast';
 import { CANONICAL_PERMISOS, normalizePermName, isDashboardPerm } from '../utils/roleConstants';
 
 export default function RolesPage() {
@@ -13,7 +14,8 @@ export default function RolesPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
-  const [confirmState, setConfirmState] = useState({ open: false, title: '', message: '', onConfirm: null });
+  const [confirmState, setConfirmState] = useState({ open: false, title: '', message: '', variant: 'danger', confirmLabel: 'Confirmar', onConfirm: null });
+  const [toast, setToast] = useState(null);
 
   const fetchRolesData = async () => {
     try {
@@ -79,6 +81,7 @@ export default function RolesPage() {
         });
         // Actualizar permisos/privilegios
         await roleService.updateRolePermisos(editingRole.id_rol, formData.asignaciones);
+        setToast({ type: 'success', message: `Rol "${formData.nombre_rol}" actualizado exitosamente.` });
       } else {
         // Crear nuevo rol
         await roleService.createRole({
@@ -86,27 +89,40 @@ export default function RolesPage() {
           descripcion: formData.descripcion,
           asignaciones: formData.asignaciones
         });
+        setToast({ type: 'success', message: `Rol "${formData.nombre_rol}" creado exitosamente.` });
       }
       setModalOpen(false);
       setEditingRole(null);
       await fetchRolesData();
     } catch (err) {
       console.error('Error al guardar el rol:', err);
-      alert(err.response?.data?.error || err.message || 'Error al guardar el rol');
+      setToast({ type: 'error', message: err.response?.data?.error || err.message || 'Error al guardar el rol' });
     }
   };
 
-  const handleToggleStatus = async (role) => {
+  const handleToggleStatus = (role) => {
     const newStatus = !role.estado;
-    try {
-      await roleService.updateRoleStatus(role.id_rol, newStatus);
-      setRoles((prev) =>
-        prev.map((r) => (r.id_rol === role.id_rol ? { ...r, estado: newStatus ? 1 : 0 } : r))
-      );
-    } catch (err) {
-      console.error('Error actualizando estado del rol:', err);
-      alert(err.response?.data?.error || err.message || 'Error al cambiar estado');
-    }
+    setConfirmState({
+      open: true,
+      title: newStatus ? `¿Activar rol "${role.nombre_rol}"?` : `¿Desactivar rol "${role.nombre_rol}"?`,
+      message: `¿Estás seguro de que deseas ${newStatus ? 'activar' : 'desactivar'} el rol "${role.nombre_rol}"?`,
+      variant: newStatus ? 'primary' : 'warning',
+      confirmLabel: newStatus ? 'Activar' : 'Desactivar',
+      onConfirm: async () => {
+        try {
+          await roleService.updateRoleStatus(role.id_rol, newStatus);
+          setRoles((prev) =>
+            prev.map((r) => (r.id_rol === role.id_rol ? { ...r, estado: newStatus ? 1 : 0 } : r))
+          );
+          setConfirmState({ open: false, title: '', message: '', variant: 'danger', confirmLabel: 'Confirmar', onConfirm: null });
+          setToast({ type: 'success', message: `Estado del rol "${role.nombre_rol}" actualizado exitosamente.` });
+        } catch (err) {
+          console.error('Error actualizando estado del rol:', err);
+          setConfirmState({ open: false, title: '', message: '', variant: 'danger', confirmLabel: 'Confirmar', onConfirm: null });
+          setToast({ type: 'error', message: err.response?.data?.error || err.message || 'Error al cambiar estado' });
+        }
+      }
+    });
   };
 
   const handleDeleteRole = (role) => {
@@ -114,15 +130,18 @@ export default function RolesPage() {
       open: true,
       title: `¿Eliminar rol "${role.nombre_rol}"?`,
       message: 'Esta acción eliminará el rol y todas sus asignaciones de permisos. No se puede deshacer.',
+      variant: 'danger',
+      confirmLabel: 'Eliminar',
       onConfirm: async () => {
         try {
           await roleService.deleteRole(role.id_rol);
           setRoles((prev) => prev.filter((r) => r.id_rol !== role.id_rol));
-          setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+          setConfirmState({ open: false, title: '', message: '', variant: 'danger', confirmLabel: 'Confirmar', onConfirm: null });
+          setToast({ type: 'success', message: `Rol "${role.nombre_rol}" eliminado exitosamente.` });
         } catch (err) {
           console.error('Error al eliminar rol:', err);
-          alert(err.response?.data?.error || err.message || 'No se puede eliminar el rol');
-          setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+          setConfirmState({ open: false, title: '', message: '', variant: 'danger', confirmLabel: 'Confirmar', onConfirm: null });
+          setToast({ type: 'error', message: err.response?.data?.error || err.message || 'No se puede eliminar el rol' });
         }
       }
     });
@@ -284,9 +303,14 @@ export default function RolesPage() {
         open={confirmState.open}
         title={confirmState.title}
         message={confirmState.message}
+        variant={confirmState.variant}
+        confirmLabel={confirmState.confirmLabel}
         onConfirm={confirmState.onConfirm}
-        onCancel={() => setConfirmState({ open: false, title: '', message: '', onConfirm: null })}
+        onCancel={() => setConfirmState({ open: false, title: '', message: '', variant: 'danger', confirmLabel: 'Confirmar', onConfirm: null })}
       />
+
+      {/* Notificaciones Toast */}
+      <FeedbackToast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }

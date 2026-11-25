@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { userService } from '../services/userService';
 import { Plus, Search, Trash2, Edit2, X } from 'lucide-react';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import FeedbackToast from '../../../components/ui/FeedbackToast';
 
 export const UserManager = () => {
     const [users, setUsers] = useState([]);
@@ -10,6 +12,8 @@ export const UserManager = () => {
     const [isOpenModal, setIsOpenModal] = useState(false);
     const [editing, setEditing] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [confirmState, setConfirmState] = useState({ open: false, title: '', message: '', variant: 'danger', confirmLabel: 'Confirmar', onConfirm: null });
+    const [toast, setToast] = useState(null);
     const [form, setForm] = useState({
         nombre_usuario: '',
         apellido_usuario: '',
@@ -82,6 +86,7 @@ export const UserManager = () => {
                     id_rol: Number(form.id_rol)
                 };
                 await userService.update(editing.id_usuario, payload);
+                setToast({ type: 'success', message: `Usuario "${payload.nombre_usuario} ${payload.apellido_usuario}" actualizado exitosamente.` });
             } else {
                 const payload = {
                     nombre_usuario: form.nombre_usuario.trim(),
@@ -93,33 +98,57 @@ export const UserManager = () => {
                     id_rol: Number(form.id_rol)
                 };
                 await userService.create(payload);
+                setToast({ type: 'success', message: `Usuario "${payload.nombre_usuario} ${payload.apellido_usuario}" creado exitosamente.` });
             }
             setIsOpenModal(false);
             setEditing(null);
             loadData();
         } catch (err) {
-            alert(err.message);
+            setToast({ type: 'error', message: err.message || 'Error al guardar el usuario' });
         }
     };
 
-    const handleDelete = async (id) => {
-        if (confirm('¿Desea eliminar este usuario?')) {
-            try {
-                await userService.delete(id);
-                loadData();
-            } catch (err) {
-                alert(err.message);
+    const handleDelete = (usr) => {
+        setConfirmState({
+            open: true,
+            title: `¿Eliminar usuario?`,
+            message: `¿Estás seguro de que deseas eliminar permanentemente a "${usr.nombre_usuario} ${usr.apellido_usuario}"? Esta acción no se puede deshacer.`,
+            variant: 'danger',
+            confirmLabel: 'Eliminar',
+            onConfirm: async () => {
+                try {
+                    await userService.delete(usr.id_usuario);
+                    setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+                    setToast({ type: 'success', message: `Usuario "${usr.nombre_usuario}" eliminado exitosamente.` });
+                    loadData();
+                } catch (err) {
+                    setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+                    setToast({ type: 'error', message: err.message || 'Error al eliminar usuario' });
+                }
             }
-        }
+        });
     };
 
-    const handleToggleStatus = async (usr) => {
-        try {
-            await userService.updateStatus(usr.id_usuario, !usr.estado);
-            loadData();
-        } catch (err) {
-            alert(err.message);
-        }
+    const handleToggleStatus = (usr) => {
+        const nuevoEstado = !usr.estado;
+        setConfirmState({
+            open: true,
+            title: nuevoEstado ? '¿Activar usuario?' : '¿Desactivar usuario?',
+            message: `¿Estás seguro de que deseas ${nuevoEstado ? 'activar' : 'desactivar'} el acceso para "${usr.nombre_usuario} ${usr.apellido_usuario}"?`,
+            variant: nuevoEstado ? 'primary' : 'danger',
+            confirmLabel: nuevoEstado ? 'Activar' : 'Desactivar',
+            onConfirm: async () => {
+                try {
+                    await userService.updateStatus(usr.id_usuario, nuevoEstado);
+                    setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+                    setToast({ type: 'success', message: `Estado del usuario "${usr.nombre_usuario}" actualizado correctamente.` });
+                    loadData();
+                } catch (err) {
+                    setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+                    setToast({ type: 'error', message: err.message || 'Error al cambiar estado del usuario' });
+                }
+            }
+        });
     };
 
     const filteredUsers = (Array.isArray(users) ? users : []).filter(u => {
@@ -165,20 +194,19 @@ export const UserManager = () => {
                             <th className="p-4 text-xs font-bold text-[#8B7BAD]">TELÉFONO</th>
                             <th className="p-4 text-xs font-bold text-[#8B7BAD]">ROL</th>
                             <th className="p-4 text-xs font-bold text-[#8B7BAD]">ESTADO</th>
-                            <th className="p-4 text-xs font-bold text-[#8B7BAD]">CREADO</th>
                             <th className="p-4 text-xs font-bold text-[#8B7BAD] text-right">ACCIONES</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[#BA9CDB]/15">
                         {loading && users.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="p-8 text-center text-xs text-[#8B7BAD]">
+                                <td colSpan="5" className="p-8 text-center text-xs text-[#8B7BAD]">
                                     Cargando usuarios...
                                 </td>
                             </tr>
                         ) : filteredUsers.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="p-8 text-center text-xs text-[#8B7BAD]">
+                                <td colSpan="5" className="p-8 text-center text-xs text-[#8B7BAD]">
                                     No se encontraron usuarios
                                 </td>
                             </tr>
@@ -209,9 +237,6 @@ export const UserManager = () => {
                                             <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${usr.estado ? 'translate-x-5' : 'translate-x-0'}`} />
                                         </button>
                                     </td>
-                                    <td className="p-4 text-xs text-[#8B7BAD]">
-                                        {usr.fecha_creacion ? new Date(usr.fecha_creacion).toLocaleDateString() : 'N/A'}
-                                    </td>
                                     <td className="p-4 text-right space-x-2">
                                         <button
                                             onClick={() => handleOpenEditModal(usr)}
@@ -221,7 +246,7 @@ export const UserManager = () => {
                                             <Edit2 className="w-4 h-4" />
                                         </button>
                                         <button
-                                            onClick={() => handleDelete(usr.id_usuario)}
+                                            onClick={() => handleDelete(usr)}
                                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"
                                             title="Eliminar"
                                         >
@@ -349,6 +374,20 @@ export const UserManager = () => {
                     </div>
                 </div>
             )}
+
+            {/* Diálogo de Confirmación */}
+            <ConfirmDialog
+                open={confirmState.open}
+                title={confirmState.title}
+                message={confirmState.message}
+                variant={confirmState.variant}
+                confirmLabel={confirmState.confirmLabel}
+                onConfirm={confirmState.onConfirm}
+                onCancel={() => setConfirmState({ open: false, title: '', message: '', variant: 'danger', confirmLabel: 'Confirmar', onConfirm: null })}
+            />
+
+            {/* Notificaciones Toast */}
+            <FeedbackToast toast={toast} onClose={() => setToast(null)} />
         </div>
     );
 };

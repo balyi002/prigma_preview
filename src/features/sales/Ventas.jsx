@@ -1,15 +1,28 @@
-import React, { useState } from 'react';
-import { 
-  Search, Download, Eye, Printer, Ban, 
-  ChevronLeft, ChevronRight, CheckCircle2, 
-  DollarSign, ShoppingCart, TrendingUp, X 
+import React, { useState, useCallback } from 'react';
+import {
+  Search, Download, Eye, Printer, Ban,
+  ChevronLeft, ChevronRight,
+  DollarSign, ShoppingCart, TrendingUp, X
 } from 'lucide-react';
+import ActionConfirmDialog from '../../components/ui/ActionConfirmDialog';
+import FeedbackToast from '../../components/ui/FeedbackToast';
+import StatusBadge from '../../components/ui/StatusBadge';
 
 export default function Ventas() {
   const [busqueda, setBusqueda] = useState('');
   const [filtroMetodo, setFiltroMetodo] = useState('Todos');
   const [ventaSeleccionada, setVentaSeleccionada] = useState(null);
-  const [alertaTicket, setAlertaTicket] = useState(null);
+  const [ventaAAnular, setVentaAAnular] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const closeToast = useCallback(() => setToast(null), []);
+  const notify = useCallback((type, payload) => {
+    if (typeof payload === 'string') {
+      setToast({ type, message: payload });
+    } else {
+      setToast({ type, ...payload });
+    }
+  }, []);
 
   // Lista de ventas simuladas
   const [ventas, setVentas] = useState([
@@ -96,7 +109,7 @@ export default function Ventas() {
 
   // Filtrado
   const ventasFiltradas = ventas.filter((v) => {
-    const coincideBusqueda = 
+    const coincideBusqueda =
       v.cliente.toLowerCase().includes(busqueda.toLowerCase()) ||
       v.id.toLowerCase().includes(busqueda.toLowerCase());
     const coincideMetodo = filtroMetodo === 'Todos' || v.metodo === filtroMetodo;
@@ -108,75 +121,88 @@ export default function Ventas() {
   const cantidadVentas = ventas.filter(v => v.estado !== 'Anulado').length;
   const ticketPromedio = cantidadVentas > 0 ? totalVentas / cantidadVentas : 0;
 
-  // Acciones
-  const anularVenta = (id) => {
-    if (window.confirm(`¿Estás seguro de anular la venta ${id}? Esta acción revertirá el inventario.`)) {
-      setVentas(ventas.map(v => v.id === id ? { ...v, estado: 'Anulado' } : v));
-    }
+  // Acciones con confirmación y alertas
+  const confirmarAnulacion = () => {
+    if (!ventaAAnular) return;
+    setVentas(ventas.map(v => v.id === ventaAAnular.id ? { ...v, estado: 'Anulado' } : v));
+    notify('success', {
+      title: 'Venta anulada',
+      message: `La venta ${ventaAAnular.id} de ${ventaAAnular.cliente} fue anulada correctamente.`
+    });
+    setVentaAAnular(null);
   };
 
   const imprimirTicket = (venta) => {
-    setAlertaTicket(`Imprimiendo comprobante de venta para ${venta.id} - ${venta.cliente}...`);
-    setTimeout(() => setAlertaTicket(null), 3000);
+    notify('success', {
+      title: 'Imprimiendo comprobante',
+      message: `Generando ticket de venta ${venta.id} - ${venta.cliente}...`
+    });
+  };
+
+  const exportarReporte = () => {
+    if (ventasFiltradas.length === 0) {
+      notify('warning', {
+        title: 'Sin registros',
+        message: 'No hay ventas en el filtro actual para exportar.'
+      });
+      return;
+    }
+    notify('success', {
+      title: 'Exportación iniciada',
+      message: `Exportando reporte de ${ventasFiltradas.length} venta(s) a Excel/PDF...`
+    });
   };
 
   return (
     <div className="space-y-6">
-      {/* Notificación de Impresión */}
-      {alertaTicket && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg border border-slate-700 text-xs font-semibold animate-in fade-in slide-in-from-top-2">
-          <Printer className="w-4 h-4 text-rose-500 animate-pulse" />
-          <span>{alertaTicket}</span>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">VENTAS</span>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Historial de Ventas</h1>
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">VENTAS</span>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">Historial de Ventas</h1>
           <p className="text-sm text-muted-foreground">
             Transacciones completadas desde el punto de venta de la papelería
           </p>
         </div>
 
-        <button 
-          onClick={() => alert('Exportando reporte de ventas a Excel/PDF...')}
-          className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border bg-card hover:bg-muted text-xs font-semibold text-foreground transition-all shadow-sm cursor-pointer"
+        <button
+          type="button"
+          onClick={exportarReporte}
+          className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border bg-card hover:bg-muted text-xs font-bold text-foreground transition-all shadow-xs cursor-pointer"
         >
-          <Download className="w-4 h-4 text-rose-500" />
+          <Download className="w-4 h-4 text-primary" />
           <span>Exportar</span>
         </button>
       </div>
 
       {/* Tarjetas KPI Superiores */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl border border-border bg-card shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center font-bold">
+        <div className="p-4 rounded-2xl border border-border bg-card shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center font-bold">
             <DollarSign className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-medium">Total Recaudado</span>
+            <span className="text-xs text-muted-foreground font-bold">Total Recaudado</span>
             <p className="text-xl font-black text-foreground">{formatoCOP(totalVentas)}</p>
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-border bg-card shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-500 flex items-center justify-center font-bold">
+        <div className="p-4 rounded-2xl border border-border bg-card shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-accent/20 border border-accent/35 text-foreground flex items-center justify-center font-bold">
             <ShoppingCart className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-medium">Nº Ventas</span>
+            <span className="text-xs text-muted-foreground font-bold">Nº Ventas</span>
             <p className="text-xl font-black text-foreground">{cantidadVentas}</p>
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-border bg-card shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
+        <div className="p-4 rounded-2xl border border-border bg-card shadow-xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
             <TrendingUp className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-xs text-muted-foreground font-medium">Ticket Promedio</span>
+            <span className="text-xs text-muted-foreground font-bold">Ticket Promedio</span>
             <p className="text-xl font-black text-foreground">{formatoCOP(ticketPromedio)}</p>
           </div>
         </div>
@@ -191,14 +217,14 @@ export default function Ventas() {
             placeholder="Buscar por cliente o ID..."
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-sm"
+            className="w-full pl-9 pr-3 py-2 text-xs font-medium rounded-xl border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring shadow-xs"
           />
         </div>
 
         <select
           value={filtroMetodo}
           onChange={(e) => setFiltroMetodo(e.target.value)}
-          className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-rose-500 shadow-sm font-medium"
+          className="w-full sm:w-auto px-3 py-2 text-xs rounded-xl border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-ring shadow-xs font-bold cursor-pointer"
         >
           <option value="Todos">Todos los métodos</option>
           <option value="Efectivo">Efectivo</option>
@@ -207,11 +233,11 @@ export default function Ventas() {
       </div>
 
       {/* Tabla de Ventas */}
-      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-border bg-card shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+              <tr className="bg-muted/50 border-b border-border text-muted-foreground font-bold uppercase tracking-wider text-[11px]">
                 <th className="py-3.5 px-4">ID</th>
                 <th className="py-3.5 px-4">Cliente</th>
                 <th className="py-3.5 px-4">Fecha</th>
@@ -225,60 +251,57 @@ export default function Ventas() {
             <tbody className="divide-y divide-border">
               {ventasFiltradas.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-8 text-muted-foreground">
+                  <td colSpan="8" className="text-center py-8 text-muted-foreground font-semibold">
                     No se encontraron registros de ventas coincidentes.
                   </td>
                 </tr>
               ) : (
                 ventasFiltradas.map((venta) => (
                   <tr key={venta.id} className="hover:bg-muted/40 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-rose-500">{venta.id}</td>
+                    <td className="py-3.5 px-4 font-mono font-bold text-primary">{venta.id}</td>
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-rose-500/10 text-rose-600 font-bold text-[11px] flex items-center justify-center">
+                        <div className="w-7 h-7 rounded-full bg-primary/10 text-primary font-black text-[11px] flex items-center justify-center">
                           {venta.avatar}
                         </div>
-                        <span className="font-semibold text-foreground">{venta.cliente}</span>
+                        <span className="font-bold text-foreground">{venta.cliente}</span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-muted-foreground">{venta.fecha}</td>
-                    <td className="py-3.5 px-4 text-foreground font-medium">{venta.articulos}</td>
-                    <td className="py-3.5 px-4 font-black text-foreground">{formatoCOP(venta.total)}</td>
+                    <td className="py-3.5 px-4 text-muted-foreground font-mono">{venta.fecha}</td>
+                    <td className="py-3.5 px-4 text-foreground font-semibold">{venta.articulos}</td>
+                    <td className="py-3.5 px-4 font-mono font-black text-foreground">{formatoCOP(venta.total)}</td>
                     <td className="py-3.5 px-4">
-                      <span className="font-medium text-foreground">{venta.metodo}</span>
+                      <span className="font-semibold text-foreground">{venta.metodo}</span>
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                        venta.estado === 'Completado' 
-                          ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' 
-                          : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                      }`}>
-                        {venta.estado}
-                      </span>
+                      <StatusBadge status={venta.estado === 'Anulado' ? 'Cancelado' : venta.estado} />
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
+                          type="button"
                           onClick={() => setVentaSeleccionada(venta)}
                           title="Ver detalle"
-                          className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg hover:bg-muted text-blue-500 transition-colors cursor-pointer"
                         >
-                          <Eye className="w-4 h-4 text-blue-500" />
+                          <Eye className="w-4 h-4" />
                         </button>
                         <button
+                          type="button"
                           onClick={() => imprimirTicket(venta)}
                           title="Imprimir ticket"
                           className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                         >
-                          <Printer className="w-4 h-4 text-slate-500" />
+                          <Printer className="w-4 h-4" />
                         </button>
                         {venta.estado !== 'Anulado' && (
                           <button
-                            onClick={() => anularVenta(venta.id)}
+                            type="button"
+                            onClick={() => setVentaAAnular(venta)}
                             title="Anular venta"
-                            className="p-1.5 rounded-lg hover:bg-rose-50 text-muted-foreground hover:text-rose-600 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-destructive transition-colors cursor-pointer"
                           >
-                            <Ban className="w-4 h-4 text-rose-500" />
+                            <Ban className="w-4 h-4" />
                           </button>
                         )}
                       </div>
@@ -292,14 +315,14 @@ export default function Ventas() {
 
         {/* Paginación */}
         <div className="px-4 py-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-          <span>Mostrando 1 a {ventasFiltradas.length} de {ventas.length} registros</span>
+          <span className="font-semibold">Mostrando 1 a {ventasFiltradas.length} de {ventas.length} registros</span>
           <div className="flex items-center gap-1">
-            <button disabled className="p-1.5 rounded-lg border border-border opacity-50 cursor-not-allowed">
+            <button type="button" disabled className="p-1.5 rounded-lg border border-border opacity-50 cursor-not-allowed">
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button className="px-2.5 py-1 rounded-lg bg-rose-500 text-white font-bold">1</button>
-            <button className="px-2.5 py-1 rounded-lg hover:bg-muted font-medium">2</button>
-            <button className="p-1.5 rounded-lg border border-border hover:bg-muted cursor-pointer">
+            <button type="button" className="px-2.5 py-1 rounded-lg bg-primary text-primary-foreground font-bold shadow-xs">1</button>
+            <button type="button" className="px-2.5 py-1 rounded-lg hover:bg-muted font-medium cursor-pointer">2</button>
+            <button type="button" className="p-1.5 rounded-lg border border-border hover:bg-muted cursor-pointer">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -308,16 +331,17 @@ export default function Ventas() {
 
       {/* Modal: Detalle de Venta */}
       {ventaSeleccionada && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card w-full max-w-lg rounded-2xl border border-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-popover text-popover-foreground w-full max-w-lg rounded-2xl border border-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">COMPROBANTE</span>
-                <h3 className="text-base font-bold text-foreground">Detalle de Venta {ventaSeleccionada.id}</h3>
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">COMPROBANTE</span>
+                <h3 className="text-base font-black text-foreground">Detalle de Venta {ventaSeleccionada.id}</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setVentaSeleccionada(null)}
-                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -326,33 +350,35 @@ export default function Ventas() {
             <div className="p-5 space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3 bg-muted/40 p-3 rounded-xl border border-border">
                 <div>
-                  <span className="text-muted-foreground">Cliente:</span>
+                  <span className="text-muted-foreground font-semibold">Cliente:</span>
                   <p className="font-bold text-foreground text-sm">{ventaSeleccionada.cliente}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Fecha y hora:</span>
-                  <p className="font-medium text-foreground">{ventaSeleccionada.fecha}</p>
+                  <span className="text-muted-foreground font-semibold">Fecha y hora:</span>
+                  <p className="font-mono font-medium text-foreground">{ventaSeleccionada.fecha}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Método de pago:</span>
-                  <p className="font-medium text-foreground">{ventaSeleccionada.metodo}</p>
+                  <span className="text-muted-foreground font-semibold">Método de pago:</span>
+                  <p className="font-bold text-foreground">{ventaSeleccionada.metodo}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Estado:</span>
-                  <p className="font-bold text-emerald-600">{ventaSeleccionada.estado}</p>
+                  <span className="text-muted-foreground font-semibold">Estado:</span>
+                  <div className="mt-0.5">
+                    <StatusBadge status={ventaSeleccionada.estado === 'Anulado' ? 'Cancelado' : ventaSeleccionada.estado} />
+                  </div>
                 </div>
               </div>
 
               <div>
-                <h4 className="font-bold text-foreground mb-2">Artículos Facturados</h4>
+                <h4 className="font-black text-foreground mb-2">Artículos Facturados</h4>
                 <div className="space-y-2">
                   {ventaSeleccionada.detalleItems?.map((it, idx) => (
                     <div key={idx} className="flex items-center justify-between py-1.5 border-b border-border">
                       <div>
-                        <p className="font-medium text-foreground">{it.desc}</p>
+                        <p className="font-bold text-foreground">{it.desc}</p>
                         <span className="text-[11px] text-muted-foreground">{it.cant} unidad(es)</span>
                       </div>
-                      <span className="font-bold text-foreground">{formatoCOP(it.precio)}</span>
+                      <span className="font-mono font-bold text-foreground">{formatoCOP(it.precio)}</span>
                     </div>
                   ))}
                 </div>
@@ -360,23 +386,25 @@ export default function Ventas() {
 
               <div className="pt-2 flex items-center justify-between text-sm font-black text-foreground border-t border-border">
                 <span>Total Facturado:</span>
-                <span className="text-lg text-rose-500">{formatoCOP(ventaSeleccionada.total)}</span>
+                <span className="text-lg font-mono text-primary">{formatoCOP(ventaSeleccionada.total)}</span>
               </div>
             </div>
 
             <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setVentaSeleccionada(null)}
-                className="px-4 py-2 rounded-xl border border-border hover:bg-muted text-xs font-semibold"
+                className="px-4 py-2 rounded-xl border border-border hover:bg-muted text-xs font-bold cursor-pointer"
               >
                 Cerrar
               </button>
               <button
+                type="button"
                 onClick={() => {
                   imprimirTicket(ventaSeleccionada);
                   setVentaSeleccionada(null);
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-all shadow-sm"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 text-xs font-black transition-all shadow-sm cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>Imprimir Ticket</span>
@@ -385,6 +413,21 @@ export default function Ventas() {
           </div>
         </div>
       )}
+
+      {/* Diálogo de Confirmación al Anular */}
+      {ventaAAnular && (
+        <ActionConfirmDialog
+          variant="danger"
+          title={`¿Anular venta ${ventaAAnular.id}?`}
+          message={`¿Estás seguro de anular la venta de ${ventaAAnular.cliente}? Esta acción revertirá el inventario.`}
+          confirmLabel="Sí, anular venta"
+          onConfirm={confirmarAnulacion}
+          onClose={() => setVentaAAnular(null)}
+        />
+      )}
+
+      {/* Alertas y Notificaciones */}
+      <FeedbackToast toast={toast} onClose={closeToast} />
     </div>
   );
 }

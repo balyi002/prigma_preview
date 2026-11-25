@@ -14,6 +14,8 @@ import {
 import { orderService } from '../services/orderService';
 import { formatCOP, printTicket } from '../../../utils/format';
 import Modal from '../../../components/ui/Modal';
+import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import FeedbackToast from '../../../components/ui/FeedbackToast';
 
 export default function POSView({ onBackToOrders, currentUser }) {
   const [catalog, setCatalog] = useState({
@@ -36,6 +38,8 @@ export default function POSView({ onBackToOrders, currentUser }) {
   const [montoAbono, setMontoAbono] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [lastCreatedOrder, setLastCreatedOrder] = useState(null);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -102,7 +106,7 @@ export default function POSView({ onBackToOrders, currentUser }) {
       const existing = prev.find((x) => x.id_unique === item.id_unique);
       if (existing) {
         if (item.tipo === 'Producto' && existing.qty >= item.stock) {
-          alert(`Has alcanzado el stock máximo disponible (${item.stock}) para este producto.`);
+          setToast({ type: 'warning', message: `Has alcanzado el stock máximo disponible (${item.stock}) para este producto.` });
           return prev;
         }
         return prev.map((x) =>
@@ -120,7 +124,7 @@ export default function POSView({ onBackToOrders, currentUser }) {
           if (x.id_unique !== id_unique) return x;
           const nextQty = x.qty + delta;
           if (x.tipo === 'Producto' && nextQty > x.stock) {
-            alert(`Stock máximo disponible: ${x.stock}`);
+            setToast({ type: 'warning', message: `Stock máximo disponible: ${x.stock}` });
             return x;
           }
           return { ...x, qty: nextQty };
@@ -134,8 +138,8 @@ export default function POSView({ onBackToOrders, currentUser }) {
   };
 
   const clearCart = () => {
-    if (cart.length > 0 && window.confirm('¿Deseas vaciar todos los artículos del carrito?')) {
-      setCart([]);
+    if (cart.length > 0) {
+      setConfirmClearOpen(true);
     }
   };
 
@@ -216,9 +220,10 @@ export default function POSView({ onBackToOrders, currentUser }) {
 
       // Recargar catálogo para refrescar los stocks descontados por los triggers de la BD
       orderService.getPOSCatalog().then((data) => setCatalog(data));
+      setToast({ type: 'success', message: isApartado ? 'Pedido apartado registrado exitosamente.' : 'Venta procesada y completada exitosamente.' });
     } catch (err) {
       console.error('Error procesando checkout:', err);
-      alert(err.response?.data?.error || err.message || 'Error al procesar la venta');
+      setToast({ type: 'error', message: err.response?.data?.error || err.message || 'Error al procesar la venta' });
     } finally {
       setSubmitting(false);
     }
@@ -640,6 +645,24 @@ export default function POSView({ onBackToOrders, currentUser }) {
           </div>
         </form>
       </Modal>
+
+      {/* Diálogo de Confirmación para Vaciar Carrito */}
+      <ConfirmDialog
+        open={confirmClearOpen}
+        title="¿Vaciar el carrito?"
+        message="¿Estás seguro de que deseas retirar todos los productos y servicios seleccionados en el carrito?"
+        variant="danger"
+        confirmLabel="Vaciar"
+        onConfirm={() => {
+          setCart([]);
+          setConfirmClearOpen(false);
+          setToast({ type: 'warning', message: 'Se ha vaciado el carrito de compras.' });
+        }}
+        onCancel={() => setConfirmClearOpen(false)}
+      />
+
+      {/* Notificaciones Toast */}
+      <FeedbackToast toast={toast} onClose={() => setToast(null)} />
     </div>
   );
 }
