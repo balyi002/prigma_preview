@@ -22,14 +22,13 @@ function Field({ label, hint, children }) {
   );
 }
 
-const EMPTY = { nombre: '', categoria: '', precio: '', costo: '', duracion: '0' };
+const EMPTY = { nombre: '', categoria: '', precio: '', costo: '' };
 
 const fromService = (s) => ({
   nombre: s.nombre_servicio,
   categoria: String(s.id_categoria_servicio),
   precio: String(s.precio_venta),
   costo: String(s.costo),
-  duracion: String(s.duracion_minutos),
 });
 
 export default function ServiceFormModal({ service, categories, onSubmit, onNotify, onClose }) {
@@ -72,13 +71,8 @@ export default function ServiceFormModal({ service, categories, onSubmit, onNoti
       missing.push('Costo (mayor o igual a 0)');
       nextErrors.costo = true;
     }
-    const duracion = Number(form.duracion);
-    if (form.duracion === '' || !Number.isInteger(duracion) || duracion < 0) {
-      missing.push('Tiempo en minutos (entero mayor o igual a 0)');
-      nextErrors.duracion = true;
-    }
 
-    return { valid: missing.length === 0, missing, nextErrors, duracion };
+    return { valid: missing.length === 0, missing, nextErrors };
   };
 
   const handleSubmit = (e) => {
@@ -103,7 +97,6 @@ export default function ServiceFormModal({ service, categories, onSubmit, onNoti
   };
 
   const confirmSave = async () => {
-    const duracion = Number(form.duracion);
     setSaving(true);
     try {
       await onSubmit({
@@ -111,7 +104,6 @@ export default function ServiceFormModal({ service, categories, onSubmit, onNoti
         id_categoria_servicio: Number(form.categoria),
         precio_venta: precio,
         costo,
-        duracion_minutos: duracion,
       });
       setConfirmOpen(false);
     } catch (err) {
@@ -211,18 +203,6 @@ export default function ServiceFormModal({ service, categories, onSubmit, onNoti
                 : 'Atención: el costo es mayor que el precio de venta.'}
             </p>
           )}
-
-          <Field label="Tiempo (minutos)" hint="Usa 0 para servicios inmediatos, como las recargas.">
-            <input
-              type="number"
-              min="0"
-              step="1"
-              inputMode="numeric"
-              value={form.duracion}
-              onChange={set('duracion')}
-              className={fieldClass(fieldErrors.duracion)}
-            />
-          </Field>
 
           {(missingItems.length > 0 || serverError) && (
             <div

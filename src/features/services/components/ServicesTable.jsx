@@ -1,19 +1,18 @@
-import { Clock, Pencil, Trash2 } from 'lucide-react';
-import { formatCOP, formatDuration, serviceCode } from '../utils/format';
+import { Pencil, Trash2 } from 'lucide-react';
+import { formatCOP, serviceCode } from '../utils/format';
 
 const th = 'px-5 py-3.5 text-xs font-black uppercase tracking-wide text-muted-foreground';
 
 export default function ServicesTable({ services, onEdit, onToggle, onDelete }) {
   return (
     <div className="bg-card border border-border rounded-2xl shadow-xs overflow-x-auto">
-      <table className="w-full text-sm min-w-[860px]">
+      <table className="w-full text-sm min-w-[740px]">
         <thead>
           <tr className="border-b border-border text-left">
             <th className={th}>Servicio</th>
             <th className={th}>Categoría</th>
             <th className={`${th} text-right`}>Precio</th>
             <th className={`${th} text-right`}>Costo</th>
-            <th className={th}>Tiempo</th>
             <th className={th}>Estado</th>
             <th className={th}>Acciones</th>
           </tr>
@@ -34,13 +33,6 @@ export default function ServicesTable({ services, onEdit, onToggle, onDelete }) 
 
               <td className="px-5 py-3 text-right font-black text-foreground">{formatCOP(s.precio_venta)}</td>
               <td className="px-5 py-3 text-right text-muted-foreground">{formatCOP(s.costo)}</td>
-
-              <td className="px-5 py-3">
-                <span className="inline-flex items-center gap-1.5 text-xs text-foreground">
-                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                  {formatDuration(s.duracion_minutos)}
-                </span>
-              </td>
 
               <td className="px-5 py-3">
                 <button
