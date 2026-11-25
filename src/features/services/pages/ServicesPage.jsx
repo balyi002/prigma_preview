@@ -19,9 +19,17 @@ export default function ServicesPage() {
   const [formTarget, setFormTarget] = useState(null); // null | 'new' | servicio
   const [deleting, setDeleting] = useState(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [toggling, setToggling] = useState(null);
+  const [toggleBusy, setToggleBusy] = useState(false);
   const [toast, setToast] = useState(null);
   const closeToast = useCallback(() => setToast(null), []);
-  const notify = (type, message) => setToast({ type, message });
+  const notify = useCallback((type, payload) => {
+    if (typeof payload === 'string') {
+      setToast({ type, message: payload });
+    } else {
+      setToast({ type, ...payload });
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -54,12 +62,21 @@ export default function ServicesPage() {
     setFormTarget(null);
   };
 
-  const handleToggle = async (service) => {
+  const handleToggle = (service) => {
+    setToggling(service);
+  };
+
+  const confirmToggle = async () => {
+    if (!toggling) return;
+    setToggleBusy(true);
     try {
-      await toggleStatus(service);
-      notify('success', service.estado ? 'Servicio desactivado.' : 'Servicio activado.');
+      await toggleStatus(toggling);
+      notify('success', toggling.estado ? 'Servicio desactivado.' : 'Servicio activado.');
     } catch (err) {
       notify('error', err.message);
+    } finally {
+      setToggleBusy(false);
+      setToggling(null);
     }
   };
 
@@ -79,8 +96,11 @@ export default function ServicesPage() {
 
   return (
     <section className="p-6 space-y-5">
-      <header className="flex items-center justify-between gap-4 flex-wrap">
-        <h1 className="text-xl font-black text-foreground">Gestión de Servicios</h1>
+      <header className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-xl font-black text-foreground">Gestión de Servicios</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Catálogo de servicios y tarifas disponibles</p>
+        </div>
         <button
           type="button"
           onClick={() => setFormTarget('new')}
@@ -88,7 +108,7 @@ export default function ServicesPage() {
           className="px-5 py-2.5 rounded-full font-black text-white text-sm bg-primary hover:opacity-90 active:scale-[0.98] disabled:opacity-50 transition-all shadow-md shadow-primary/20 flex items-center justify-center gap-2 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
-          Nuevo
+          Nuevo Servicio
         </button>
       </header>
 
@@ -148,14 +168,29 @@ export default function ServicesPage() {
           service={formTarget === 'new' ? null : formTarget}
           categories={categories}
           onSubmit={handleSubmit}
+          onNotify={notify}
           onClose={() => setFormTarget(null)}
+        />
+      )}
+
+      {toggling && (
+        <ConfirmDialog
+          variant="warning"
+          title={`¿${toggling.estado ? 'Desactivar' : 'Activar'} servicio ${serviceCode(toggling.id_servicio)}?`}
+          message={`El servicio «${toggling.nombre_servicio}» pasará a estar ${toggling.estado ? 'inactivo' : 'activo'}.`}
+          confirmLabel="Confirmar"
+          loading={toggleBusy}
+          onConfirm={confirmToggle}
+          onClose={() => setToggling(null)}
         />
       )}
 
       {deleting && (
         <ConfirmDialog
-          title="Eliminar servicio"
-          message={`¿Eliminar «${deleting.nombre_servicio}» definitivamente? Si ya fue usado en pedidos, no se podrá eliminar: desactívalo con el interruptor.`}
+          variant="danger"
+          title={`¿Eliminar permanentemente el servicio ${serviceCode(deleting.id_servicio)}?`}
+          message={`Se eliminará «${deleting.nombre_servicio}» definitivamente. Si ya fue usado en pedidos, no se podrá eliminar y deberás desactivarlo.`}
+          confirmLabel="Confirmar"
           loading={deleteBusy}
           onConfirm={handleDelete}
           onClose={() => setDeleting(null)}

@@ -101,9 +101,30 @@ export default function usePurchases({ estados, proveedores }) {
     await load({ silent: true });
   };
 
+  const updatePurchase = async (id, header) => {
+    await request(`/compras/${id}`, { method: 'PUT', body: header });
+    invalidate(id);
+    await load({ silent: true });
+  };
+
   const addLine = async (id, line) => {
     await request(`/compras/${id}/detalle`, {
       method: 'POST',
+      body: {
+        id_producto: line.id_producto,
+        cantidad: line.cantidad,
+        precio_unitario: line.precio_unitario,
+        porcentaje_descuento: line.porcentaje_descuento,
+        porcentaje_iva: line.porcentaje_iva,
+      },
+    });
+    invalidate(id);
+    await load({ silent: true });
+  };
+
+  const updateLine = async (id, idDetalle, line) => {
+    await request(`/compras/${id}/detalle/${idDetalle}`, {
+      method: 'PUT',
       body: {
         id_producto: line.id_producto,
         cantidad: line.cantidad,
@@ -135,8 +156,10 @@ export default function usePurchases({ estados, proveedores }) {
     reload: load,
     fetchDetail,
     createPurchase,
+    updatePurchase,
     changeStatus,
     addLine,
+    updateLine,
     removeLine,
     deletePurchase,
   };
