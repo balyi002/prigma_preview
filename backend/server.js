@@ -59,19 +59,41 @@ app.get('/api/tipos-documento', (req, res) => {
     db.query('SELECT * FROM tipos_documento', (err, rows) => (err ? handleErr(res, err) : res.json(rows)));
 });
 
-// Login contra la tabla usuarios (documento + contrasena)
+// Login contra la tabla usuarios (documento + contrasena exacta de la base de datos)
 app.post('/api/login', (req, res) => {
-    const { documento, contrasena } = req.body;
+    const rawDoc = typeof req.body?.documento === 'string' ? req.body.documento.trim() : '';
+    const rawPass = typeof req.body?.contrasena === 'string' ? req.body.contrasena : '';
+
+    if (!rawDoc) {
+        return res.status(400).json({ error: 'El número de documento es obligatorio.' });
+    }
+    if (!/^[a-zA-Z0-9-]{4,20}$/.test(rawDoc)) {
+        return res.status(400).json({ error: 'El número de documento debe tener entre 4 y 20 caracteres alfanuméricos.' });
+    }
+    if (!rawPass || rawPass.length < 4) {
+        return res.status(400).json({ error: 'La contraseña debe tener al menos 4 caracteres.' });
+    }
+
     const sql = `
-    SELECT u.id_usuario, u.nombre_usuario, u.apellido_usuario, u.documento, u.estado, r.id_rol, r.nombre_rol
+    SELECT u.id_usuario, u.nombre_usuario, u.apellido_usuario, u.documento, u.contrasena,
+           u.estado, r.id_rol, r.nombre_rol, r.estado AS rol_estado
     FROM usuarios u
     JOIN roles r ON r.id_rol = u.id_rol
-    WHERE u.documento = ? AND (u.contrasena = ? OR (u.contrasena LIKE 'hash_de_prueba_%' AND ? IN ('1234', 'admin', 'password', '123456', u.contrasena)))`;
-    db.query(sql, [documento, contrasena, contrasena], (err, rows) => {
+    WHERE u.documento = ?
+    LIMIT 1`;
+    db.query(sql, [rawDoc], (err, rows) => {
         if (err) return handleErr(res, err);
-        if (rows.length === 0) return res.status(401).json({ error: 'Credenciales incorrectas' });
-        if (!rows[0].estado) return res.status(403).json({ error: 'El usuario se encuentra inactivo' });
-        res.json({ message: 'Login exitoso', usuario: rows[0] });
+        if (rows.length === 0 || rows[0].contrasena !== rawPass) {
+            return res.status(401).json({ error: 'Documento o contraseña incorrectos.' });
+        }
+        if (!rows[0].estado) {
+            return res.status(403).json({ error: 'El usuario se encuentra inactivo. Contacta al administrador.' });
+        }
+        if (!rows[0].rol_estado) {
+            return res.status(403).json({ error: 'El rol asignado a este usuario se encuentra inactivo.' });
+        }
+        const { contrasena: _ignored, rol_estado: _rolIgnored, ...usuario } = rows[0];
+        res.json({ message: 'Inicio de sesión exitoso', usuario });
     });
 });
 
@@ -915,8 +937,384 @@ app.post('/api/pos/checkout', (req, res) => {
 });
 
 // =====================================================================
-// 9. VENTAS (Consulta a vista_ventas: pedidos en estado Completado)
+// 9. DASHBOARD Y VENTAS (Módulos de Anyi Carolina González)
 // =====================================================================
+const pad2 = (n) => String(n).padStart(2, '0');
+const formatDateUTC = (dt) => `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth() + 1)}-${pad2(dt.getUTCDate())}`;
+const parseDateUTC = (str) => {
+    const clean = String(str || '').slice(0, 10);
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(clean);
+    if (!match) {
+        const now = new Date();
+        return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    }
+    return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+};
+
+const getDashboardPeriodRange = (tipoRaw, fechaRaw) => {
+    const tipo = ['dia', 'semana', 'mes', 'anio'].includes(tipoRaw) ? tipoRaw : 'mes';
+    const ref = parseDateUTC(fechaRaw || '2026-11-24');
+    const y = ref.getUTCFullYear();
+    const m = ref.getUTCMonth();
+    const d = ref.getUTCDate();
+
+    const monthsES = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    const shortMonthsES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+    let start, end, prevStart, prevEnd, label;
+
+    if (tipo === 'dia') {
+        start = new Date(ref);
+        end = new Date(ref);
+        prevStart = new Date(Date.UTC(y, m, d - 1));
+        prevEnd = new Date(prevStart);
+        label = `${pad2(d)} ${shortMonthsES[m]} ${y}`;
+    } else if (tipo === 'semana') {
+        const dayOfWeek = (ref.getUTCDay() + 6) % 7; // Lunes=0 ... Domingo=6
+        start = new Date(Date.UTC(y, m, d - dayOfWeek));
+        end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() + 6));
+        prevStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate() - 7));
+        prevEnd = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() - 7));
+        label = `${pad2(start.getUTCDate())} ${shortMonthsES[start.getUTCMonth()]} - ${pad2(end.getUTCDate())} ${shortMonthsES[end.getUTCMonth()]} ${end.getUTCFullYear()}`;
+    } else if (tipo === 'anio') {
+        start = new Date(Date.UTC(y, 0, 1));
+        end = new Date(Date.UTC(y, 11, 31));
+        prevStart = new Date(Date.UTC(y - 1, 0, 1));
+        prevEnd = new Date(Date.UTC(y - 1, 11, 31));
+        label = `Año ${y}`;
+    } else {
+        start = new Date(Date.UTC(y, m, 1));
+        end = new Date(Date.UTC(y, m + 1, 0));
+        prevStart = new Date(Date.UTC(y, m - 1, 1));
+        prevEnd = new Date(Date.UTC(y, m, 0));
+        label = `${monthsES[m]} ${y}`;
+    }
+
+    const diasTotalesPeriodo = Math.round((end - start) / 86400000) + 1;
+
+    return {
+        tipo,
+        fecha: formatDateUTC(ref),
+        startDate: formatDateUTC(start),
+        endDate: formatDateUTC(end),
+        prevStartDate: formatDateUTC(prevStart),
+        prevEndDate: formatDateUTC(prevEnd),
+        label,
+        diasTotalesPeriodo
+    };
+};
+
+app.get('/api/dashboard', async (req, res) => {
+    try {
+        const period = getDashboardPeriodRange(req.query.tipo, req.query.fecha);
+        const promiseDb = db.promise();
+
+        const [
+            [pedidosPeriodo],
+            [pedidosPrev],
+            [topItems],
+            [horariosPeriodo],
+            [proximosTurnos]
+        ] = await Promise.all([
+            promiseDb.query(
+                `SELECT v.id_pedido,
+                        DATE_FORMAT(v.fecha_pedido, '%Y-%m-%d') AS fecha_dia,
+                        HOUR(v.fecha_pedido) AS hora_dia,
+                        v.fecha_pedido,
+                        v.id_cliente,
+                        v.id_usuario,
+                        v.nombre_estado,
+                        v.total,
+                        v.saldo,
+                        c.nombre_cliente,
+                        u.nombre_usuario,
+                        u.apellido_usuario,
+                        COALESCE((SELECT CASE WHEN pg.pago_efectivo = 1 THEN 'Efectivo' ELSE 'Transferencia' END
+                                  FROM pagos_pedido pg WHERE pg.id_pedido = v.id_pedido ORDER BY pg.id_pago DESC LIMIT 1), 'Efectivo') AS metodo_pago,
+                        COALESCE((SELECT SUM(arts.cantidad) FROM (
+                            SELECT id_pedido, cantidad FROM detalle_pedido_productos
+                            UNION ALL
+                            SELECT id_pedido, cantidad FROM detalle_pedido_servicios
+                        ) arts WHERE arts.id_pedido = v.id_pedido), 0) AS total_articulos
+                 FROM vista_pedidos_resumen v
+                 JOIN clientes c ON c.id_cliente = v.id_cliente
+                 JOIN usuarios u ON u.id_usuario = v.id_usuario
+                 WHERE DATE(v.fecha_pedido) BETWEEN ? AND ?
+                 ORDER BY v.fecha_pedido DESC`,
+                [period.startDate, period.endDate]
+            ),
+            promiseDb.query(
+                `SELECT v.id_pedido, v.nombre_estado, v.total
+                 FROM vista_pedidos_resumen v
+                 WHERE DATE(v.fecha_pedido) BETWEEN ? AND ?`,
+                [period.prevStartDate, period.prevEndDate]
+            ),
+            promiseDb.query(
+                `SELECT vv.tipo_item, vv.id_item, vv.nombre_item,
+                        SUM(vv.cantidad) AS cantidad,
+                        SUM(vv.subtotal_linea) AS total_vendido
+                 FROM vista_ventas vv
+                 WHERE DATE(vv.fecha_pedido) BETWEEN ? AND ?
+                 GROUP BY vv.tipo_item, vv.id_item, vv.nombre_item
+                 ORDER BY cantidad DESC, total_vendido DESC
+                 LIMIT 5`,
+                [period.startDate, period.endDate]
+            ),
+            promiseDb.query(
+                `SELECT h.id_horario, h.id_usuario,
+                        DATE_FORMAT(h.fecha_trabajo, '%Y-%m-%d') AS fecha_trabajo,
+                        u.nombre_usuario, u.apellido_usuario, r.nombre_rol
+                 FROM horarios_empleados h
+                 JOIN usuarios u ON u.id_usuario = h.id_usuario
+                 JOIN roles r ON r.id_rol = u.id_rol
+                 WHERE h.fecha_trabajo BETWEEN ? AND ?
+                 ORDER BY h.fecha_trabajo ASC, u.nombre_usuario ASC`,
+                [period.startDate, period.endDate]
+            ),
+            promiseDb.query(
+                `SELECT h.id_horario, h.id_usuario,
+                        DATE_FORMAT(h.fecha_trabajo, '%Y-%m-%d') AS fecha_trabajo,
+                        u.nombre_usuario, u.apellido_usuario, r.nombre_rol
+                 FROM horarios_empleados h
+                 JOIN usuarios u ON u.id_usuario = h.id_usuario
+                 JOIN roles r ON r.id_rol = u.id_rol
+                 WHERE h.fecha_trabajo >= ?
+                 ORDER BY h.fecha_trabajo ASC
+                 LIMIT 6`,
+                [period.fecha]
+            )
+        ]);
+
+        const completadas = pedidosPeriodo.filter((p) => (p.nombre_estado || '').toLowerCase() === 'completado');
+        const activos = pedidosPeriodo.filter((p) => {
+            const est = (p.nombre_estado || '').toLowerCase();
+            return est === 'apartado' || est === 'pendiente';
+        });
+        const completadasPrev = pedidosPrev.filter((p) => (p.nombre_estado || '').toLowerCase() === 'completado');
+
+        const ingresos = completadas.reduce((acc, p) => acc + Number(p.total || 0), 0);
+        const ingresosAnterior = completadasPrev.reduce((acc, p) => acc + Number(p.total || 0), 0);
+        const ventasCount = completadas.length;
+        const ventasCountAnterior = completadasPrev.length;
+        const ticketPromedio = ventasCount > 0 ? ingresos / ventasCount : 0;
+        const ticketAnterior = ventasCountAnterior > 0 ? ingresosAnterior / ventasCountAnterior : 0;
+
+        const calcPct = (curr, prev) => {
+            if (prev === 0) return curr > 0 ? 100 : 0;
+            return Math.round(((curr - prev) / prev) * 1000) / 10;
+        };
+
+        const kpis = {
+            ingresos,
+            ingresosAnterior,
+            variacionIngresos: calcPct(ingresos, ingresosAnterior),
+            ventasCount,
+            ventasCountAnterior,
+            variacionVentas: calcPct(ventasCount, ventasCountAnterior),
+            ventasEfectivo: completadas.filter((p) => p.metodo_pago === 'Efectivo').length,
+            ventasTransferencia: completadas.filter((p) => p.metodo_pago === 'Transferencia').length,
+            pedidosActivos: activos.length,
+            porLiquidar: activos.filter((p) => Number(p.saldo || 0) > 0).length,
+            saldoPendiente: activos.reduce((acc, p) => acc + Number(p.saldo || 0), 0),
+            ticketPromedio,
+            ticketAnterior,
+            variacionTicket: calcPct(ticketPromedio, ticketAnterior)
+        };
+
+        // Agrupar turnos por fecha
+        const turnosPorFechaMap = {};
+        horariosPeriodo.forEach((h) => {
+            turnosPorFechaMap[h.fecha_trabajo] = (turnosPorFechaMap[h.fecha_trabajo] || 0) + 1;
+        });
+
+        // Construir serie de gráfico según tipo de filtro
+        let chart = [];
+        if (period.tipo === 'dia') {
+            const horas = [8, 10, 12, 14, 16, 18, 20];
+            chart = horas.map((h) => {
+                const delBloque = completadas.filter((v) => v.hora_dia >= h && v.hora_dia < h + 2);
+                const total = delBloque.reduce((acc, v) => acc + Number(v.total || 0), 0);
+                return {
+                    label: `${pad2(h)}:00`,
+                    sublabel: `${pad2(h)}-${pad2(h + 2)}h`,
+                    total,
+                    ventasCount: delBloque.length,
+                    turnosCount: 0
+                };
+            });
+            // Incluir ventas fuera de 08-22 si existen
+            const extra = completadas.filter((v) => v.hora_dia < 8 || v.hora_dia >= 22);
+            if (extra.length > 0) {
+                chart.push({
+                    label: 'Otros',
+                    sublabel: 'Fuera horario',
+                    total: extra.reduce((acc, v) => acc + Number(v.total || 0), 0),
+                    ventasCount: extra.length,
+                    turnosCount: 0
+                });
+            }
+        } else if (period.tipo === 'semana') {
+            const diasLabel = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+            const startDt = parseDateUTC(period.startDate);
+            chart = diasLabel.map((diaNombre, idx) => {
+                const dt = new Date(Date.UTC(startDt.getUTCFullYear(), startDt.getUTCMonth(), startDt.getUTCDate() + idx));
+                const iso = formatDateUTC(dt);
+                const delDia = completadas.filter((v) => v.fecha_dia === iso);
+                return {
+                    label: diaNombre,
+                    sublabel: `${pad2(dt.getUTCDate())}/${pad2(dt.getUTCMonth() + 1)}`,
+                    fecha: iso,
+                    total: delDia.reduce((acc, v) => acc + Number(v.total || 0), 0),
+                    ventasCount: delDia.length,
+                    turnosCount: turnosPorFechaMap[iso] || 0
+                };
+            });
+        } else if (period.tipo === 'anio') {
+            const mesesLabel = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            const anioNum = period.startDate.slice(0, 4);
+            chart = mesesLabel.map((mesNombre, idx) => {
+                const ym = `${anioNum}-${pad2(idx + 1)}`;
+                const delMes = completadas.filter((v) => v.fecha_dia.startsWith(ym));
+                const turnosMes = horariosPeriodo.filter((h) => h.fecha_trabajo.startsWith(ym)).length;
+                return {
+                    label: mesNombre,
+                    sublabel: ym,
+                    total: delMes.reduce((acc, v) => acc + Number(v.total || 0), 0),
+                    ventasCount: delMes.length,
+                    turnosCount: turnosMes
+                };
+            });
+        } else {
+            // Mes: agrupar por semanas del mes (Sem 1..Sem 4/5)
+            const daysInMonth = period.diasTotalesPeriodo;
+            const monthPrefix = period.startDate.slice(0, 7);
+            const ranges = [
+                [1, 7],
+                [8, 14],
+                [15, 21],
+                [22, 28]
+            ];
+            if (daysInMonth > 28) ranges.push([29, daysInMonth]);
+            chart = ranges.map(([dStart, dEnd], idx) => {
+                const sIso = `${monthPrefix}-${pad2(dStart)}`;
+                const eIso = `${monthPrefix}-${pad2(dEnd)}`;
+                const deSem = completadas.filter((v) => v.fecha_dia >= sIso && v.fecha_dia <= eIso);
+                const turnosSem = horariosPeriodo.filter((h) => h.fecha_trabajo >= sIso && h.fecha_trabajo <= eIso).length;
+                return {
+                    label: `Sem ${idx + 1}`,
+                    sublabel: `${pad2(dStart)}-${pad2(dEnd)}`,
+                    total: deSem.reduce((acc, v) => acc + Number(v.total || 0), 0),
+                    ventasCount: deSem.length,
+                    turnosCount: turnosSem
+                };
+            });
+        }
+
+        const maxChartTotal = Math.max(...chart.map((c) => c.total), 0);
+        chart = chart.map((c) => ({
+            ...c,
+            porcentaje: maxChartTotal > 0 ? Math.max(c.total > 0 ? 12 : 4, Math.round((c.total / maxChartTotal) * 100)) : 4
+        }));
+
+        const maxTopQty = topItems.length > 0 ? Number(topItems[0].cantidad || 1) : 1;
+        const topProductos = topItems.map((it) => ({
+            nombre: it.nombre_item,
+            tipo: it.tipo_item,
+            cantidad: Number(it.cantidad || 0),
+            total: Number(it.total_vendido || 0),
+            porcentaje: Math.round((Number(it.cantidad || 0) / maxTopQty) * 100)
+        }));
+        const totalUnidades = topProductos.reduce((acc, p) => acc + p.cantidad, 0);
+
+        const ultimasVentas = completadas.slice(0, 6).map((v) => ({
+            id_pedido: v.id_pedido,
+            codigo: `VTA-${String(v.id_pedido).padStart(3, '0')}`,
+            cliente: v.nombre_cliente,
+            vendedor: `${v.nombre_usuario} ${v.apellido_usuario || ''}`.trim(),
+            metodo: v.metodo_pago,
+            fecha_pedido: v.fecha_pedido,
+            total: Number(v.total || 0),
+            estado: v.nombre_estado,
+            total_articulos: Number(v.total_articulos || 0)
+        }));
+
+        // Analítica basada en horarios_empleados.fecha_trabajo
+        const diasConTurnoSet = new Set(horariosPeriodo.map((h) => h.fecha_trabajo));
+        const empleadosUnicosSet = new Set(horariosPeriodo.map((h) => h.id_usuario));
+        const ventasEnDiasConTurnoList = completadas.filter((v) => diasConTurnoSet.has(v.fecha_dia));
+        const ingresosEnDiasConTurno = ventasEnDiasConTurnoList.reduce((acc, v) => acc + Number(v.total || 0), 0);
+
+        const fechasTrabajoDetalle = horariosPeriodo.map((h) => {
+            const ventasDia = completadas.filter((v) => v.fecha_dia === h.fecha_trabajo);
+            const ventasEmpleadoDia = ventasDia.filter((v) => v.id_usuario === h.id_usuario);
+            return {
+                id_horario: h.id_horario,
+                id_usuario: h.id_usuario,
+                fecha_trabajo: h.fecha_trabajo,
+                nombre_completo: `${h.nombre_usuario} ${h.apellido_usuario}`.trim(),
+                nombre_rol: h.nombre_rol,
+                ventas_del_dia: ventasDia.length,
+                ingresos_del_dia: ventasDia.reduce((acc, v) => acc + Number(v.total || 0), 0),
+                ventas_empleado_dia: ventasEmpleadoDia.length,
+                ingresos_empleado_dia: ventasEmpleadoDia.reduce((acc, v) => acc + Number(v.total || 0), 0)
+            };
+        });
+
+        const empMap = {};
+        horariosPeriodo.forEach((h) => {
+            if (!empMap[h.id_usuario]) {
+                const ventasEmp = completadas.filter((v) => v.id_usuario === h.id_usuario);
+                empMap[h.id_usuario] = {
+                    id_usuario: h.id_usuario,
+                    nombre_completo: `${h.nombre_usuario} ${h.apellido_usuario}`.trim(),
+                    nombre_rol: h.nombre_rol,
+                    turnos: 0,
+                    fechas: [],
+                    ventas_periodo: ventasEmp.length,
+                    ingresos_periodo: ventasEmp.reduce((acc, v) => acc + Number(v.total || 0), 0)
+                };
+            }
+            empMap[h.id_usuario].turnos += 1;
+            empMap[h.id_usuario].fechas.push(h.fecha_trabajo);
+        });
+
+        const trabajoStats = {
+            totalTurnosPeriodo: horariosPeriodo.length,
+            diasConTurno: diasConTurnoSet.size,
+            diasTotalesPeriodo: period.diasTotalesPeriodo,
+            coberturaPorcentaje: period.diasTotalesPeriodo > 0
+                ? Math.round((diasConTurnoSet.size / period.diasTotalesPeriodo) * 100)
+                : 0,
+            empleadosProgramados: empleadosUnicosSet.size,
+            ventasEnDiasConTurno: ventasEnDiasConTurnoList.length,
+            ingresosEnDiasConTurno,
+            fechasTrabajoDetalle,
+            turnosPorEmpleado: Object.values(empMap).sort((a, b) => b.turnos - a.turnos || b.ingresos_periodo - a.ingresos_periodo),
+            proximosTurnos: proximosTurnos.map((t) => ({
+                id_horario: t.id_horario,
+                fecha_trabajo: t.fecha_trabajo,
+                nombre_completo: `${t.nombre_usuario} ${t.apellido_usuario}`.trim(),
+                nombre_rol: t.nombre_rol
+            }))
+        };
+
+        res.json({
+            period,
+            kpis,
+            chart,
+            topProductos,
+            totalUnidades,
+            ultimasVentas,
+            trabajoStats
+        });
+    } catch (err) {
+        return handleErr(res, err);
+    }
+});
+
 app.get('/api/ventas', (req, res) => {
     const sql = `
     SELECT v.*, c.nombre_cliente, u.nombre_usuario
