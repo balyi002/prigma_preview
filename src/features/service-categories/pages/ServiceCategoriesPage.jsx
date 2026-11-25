@@ -1,12 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Plus, Search, Tag, AlertCircle, X } from 'lucide-react';
 import { serviceCategoryService } from '../services/serviceCategoryService';
 import ServiceCategoryModal from '../components/ServiceCategoryModal';
 import ServiceCategoriesTable from '../components/ServiceCategoriesTable';
-import ConfirmDialog from '../../../components/ui/ConfirmDialog';
+import ActionConfirmDialog from '../../../components/ui/ActionConfirmDialog';
+import FeedbackToast from '../../../components/ui/FeedbackToast';
 import Pagination from '../../../components/ui/Pagination';
 
 const ITEMS_PER_PAGE = 5;
+
+const getCategoryCode = (id) => `SC${String(id).padStart(3, '0')}`;
 
 export default function ServiceCategoriesPage() {
   const [categories, setCategories] = useState([]);
@@ -18,12 +21,18 @@ export default function ServiceCategoriesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [modalLoading, setModalLoading] = useState(false);
-  const [confirmState, setConfirmState] = useState({
-    open: false,
-    title: '',
-    message: '',
-    onConfirm: null
-  });
+  const [confirmState, setConfirmState] = useState(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const closeToast = useCallback(() => setToast(null), []);
+  const notify = useCallback((type, payload) => {
+    if (typeof payload === 'string') {
+      setToast({ type, message: payload });
+    } else {
+      setToast({ type, ...payload });
+    }
+  }, []);
 
   const fetchCategories = async () => {
     try {
@@ -38,7 +47,9 @@ export default function ServiceCategoriesPage() {
       setCategories(normalized);
     } catch (err) {
       console.error('Error cargando categorías de servicios:', err);
-      setErrorMsg('No se pudo conectar con el servidor para obtener las categorías de servicios.');
+      const message = 'No se pudo conectar con el servidor para obtener las categorías de servicios.';
+      setErrorMsg(message);
+      notify('error', { title: 'Error de conexión', message });
     } finally {
       setLoading(false);
     }
@@ -53,7 +64,7 @@ export default function ServiceCategoriesPage() {
     const q = search.trim().toLowerCase();
     if (!q) return categories;
     return categories.filter((c) => {
-      const code = `SC${String(c.id_categoria_servicio).padStart(3, '0')}`.toLowerCase();
+      const code = getCategoryCode(c.id_categoria_servicio).toLowerCase();
       const name = (c.nombre_categoria || '').toLowerCase();
       const desc = (c.descripcion || '').toLowerCase();
       return name.includes(q) || desc.includes(q) || code.includes(q);
@@ -69,6 +80,10 @@ export default function ServiceCategoriesPage() {
   useEffect(() => {
     setPage(1);
   }, [search]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   // Handlers Modal
   const handleOpenCreate = () => {
@@ -86,45 +101,69 @@ export default function ServiceCategoriesPage() {
       setModalLoading(true);
       if (editingCategory) {
         await serviceCategoryService.updateCategory(editingCategory.id_categoria_servicio, formData);
+        notify('success', `Categoría «${formData.nombre_categoria}» actualizada correctamente.`);
       } else {
         await serviceCategoryService.createCategory(formData);
+        notify('success', `Categoría «${formData.nombre_categoria}» creada correctamente.`);
       }
       setModalOpen(false);
       setEditingCategory(null);
       await fetchCategories();
     } catch (err) {
       console.error('Error guardando categoría de servicio:', err);
-      alert(err.response?.data?.error || err.message || 'Error al guardar la categoría');
+      throw err;
     } finally {
       setModalLoading(false);
     }
   };
 
   const handleToggleStatus = (cat) => {
-    const newStatus = !(cat.estado !== 0 && cat.estado !== false);
-    setCategories((prev) =>
-      prev.map((item) =>
-        item.id_categoria_servicio === cat.id_categoria_servicio
-          ? { ...item, estado: newStatus }
-          : item
-      )
-    );
+    const isActivo = cat.estado !== 0 && cat.estado !== false;
+    const newStatus = !isActivo;
+    const code = getCategoryCode(cat.id_categoria_servicio);
+
+    setConfirmState({
+      variant: 'warning',
+      title: `¿${isActivo ? 'Desactivar' : 'Activar'} categoría ${code}?`,
+      message: `¿Estás seguro de que deseas ${isActivo ? 'desactivar' : 'activar'} la categoría «${cat.nombre_categoria}»?`,
+      confirmLabel: isActivo ? 'Desactivar' : 'Activar',
+      onConfirm: () => {
+        setCategories((prev) =>
+          prev.map((item) =>
+            item.id_categoria_servicio === cat.id_categoria_servicio
+              ? { ...item, estado: newStatus }
+              : item
+          )
+        );
+        setConfirmState(null);
+        notify('success', `Categoría «${cat.nombre_categoria}» ${newStatus ? 'activada' : 'desactivada'} correctamente.`);
+      }
+    });
   };
 
   const handleDelete = (cat) => {
+    const code = getCategoryCode(cat.id_categoria_servicio);
     setConfirmState({
-      open: true,
-      title: '¿Eliminar categoría de servicio?',
-      message: `¿Estás seguro de que deseas eliminar permanentemente "${cat.nombre_categoria}"? Si tiene servicios asociados, no podrá ser eliminada.`,
+      variant: 'danger',
+      title: `¿Eliminar categoría ${code}?`,
+      message: `¿Estás seguro de que deseas eliminar permanentemente «${cat.nombre_categoria}»? Si tiene servicios asociados, no podrá ser eliminada.`,
+      confirmLabel: 'Eliminar Categoría',
       onConfirm: async () => {
+        setConfirmBusy(true);
         try {
           await serviceCategoryService.deleteCategory(cat.id_categoria_servicio);
-          setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+          setConfirmState(null);
+          notify('success', `Categoría «${cat.nombre_categoria}» eliminada correctamente.`);
           await fetchCategories();
         } catch (err) {
           console.error('Error eliminando categoría:', err);
-          alert(err.response?.data?.error || err.message || 'No se pudo eliminar la categoría');
-          setConfirmState({ open: false, title: '', message: '', onConfirm: null });
+          setConfirmState(null);
+          notify('error', {
+            title: 'No se pudo eliminar la categoría',
+            message: err.response?.data?.error || err.message || 'Tiene servicios asociados en el catálogo.'
+          });
+        } finally {
+          setConfirmBusy(false);
         }
       }
     });
@@ -132,7 +171,7 @@ export default function ServiceCategoriesPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
-      {/* Cabecera idéntica a la captura */}
+      {/* Cabecera */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-xl font-black text-foreground tracking-tight">
@@ -209,11 +248,11 @@ export default function ServiceCategoriesPage() {
           />
 
           {/* Paginación */}
-          <div className="flex justify-center pt-2">
+          <div className="pt-2">
             <Pagination
-              currentPage={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
+              page={page}
+              total={totalPages}
+              onPage={setPage}
             />
           </div>
         </div>
@@ -227,20 +266,26 @@ export default function ServiceCategoriesPage() {
           setEditingCategory(null);
         }}
         onSave={handleSave}
+        onNotify={notify}
         category={editingCategory}
         loading={modalLoading}
       />
 
-      {/* Diálogo Confirmación para Eliminar */}
-      <ConfirmDialog
-        open={confirmState.open}
-        title={confirmState.title}
-        message={confirmState.message}
-        confirmLabel="Eliminar Categoría"
-        variant="danger"
-        onConfirm={confirmState.onConfirm}
-        onCancel={() => setConfirmState({ open: false, title: '', message: '', onConfirm: null })}
-      />
+      {/* Diálogo Confirmación para Eliminar o Cambiar Estado */}
+      {confirmState && (
+        <ActionConfirmDialog
+          variant={confirmState.variant}
+          title={confirmState.title}
+          message={confirmState.message}
+          confirmLabel={confirmState.confirmLabel}
+          loading={confirmBusy}
+          onConfirm={confirmState.onConfirm}
+          onClose={() => !confirmBusy && setConfirmState(null)}
+        />
+      )}
+
+      {/* Notificaciones */}
+      <FeedbackToast toast={toast} onClose={closeToast} />
     </div>
   );
 }
